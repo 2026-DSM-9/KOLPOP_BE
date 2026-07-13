@@ -1,6 +1,6 @@
-package com.dsm9.kolpop.auth.jwt;
+package com.dsm9.kolpop.domain.auth.jwt;
 
-import com.dsm9.kolpop.user.domain.User;
+import com.dsm9.kolpop.domain.user.entity.User;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 

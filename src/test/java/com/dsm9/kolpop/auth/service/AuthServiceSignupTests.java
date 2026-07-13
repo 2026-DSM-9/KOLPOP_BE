@@ -1,9 +1,10 @@
 package com.dsm9.kolpop.auth.service;
 
-import com.dsm9.kolpop.auth.dto.SignupRequest;
-import com.dsm9.kolpop.auth.dto.SignupResponse;
-import com.dsm9.kolpop.auth.dto.SignupVerifyRequest;
-import com.dsm9.kolpop.auth.dto.LoginIdCheckRequest;
+import com.dsm9.kolpop.domain.auth.dto.SignupRequest;
+import com.dsm9.kolpop.domain.auth.dto.SignupResponse;
+import com.dsm9.kolpop.domain.auth.dto.SignupVerifyRequest;
+import com.dsm9.kolpop.domain.auth.dto.LoginIdCheckRequest;
+import com.dsm9.kolpop.domain.auth.service.AuthService;
 import com.dsm9.kolpop.global.exception.BusinessException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;

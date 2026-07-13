@@ -1,4 +1,4 @@
-package com.dsm9.kolpop.user.domain;
+package com.dsm9.kolpop.domain.user.entity;
 
 public enum UserRole {
     LANDLORD,

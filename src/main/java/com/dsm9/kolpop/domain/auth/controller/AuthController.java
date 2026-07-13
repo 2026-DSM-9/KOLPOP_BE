@@ -1,15 +1,15 @@
-package com.dsm9.kolpop.auth.controller;
+package com.dsm9.kolpop.domain.auth.controller;
 
-import com.dsm9.kolpop.auth.dto.FounderLoginResponse;
-import com.dsm9.kolpop.auth.dto.LoginRequest;
-import com.dsm9.kolpop.auth.dto.LoginResponse;
-import com.dsm9.kolpop.auth.dto.LoginIdCheckRequest;
-import com.dsm9.kolpop.auth.dto.ReissueResponse;
-import com.dsm9.kolpop.auth.dto.SignupCodeSendRequest;
-import com.dsm9.kolpop.auth.dto.SignupRequest;
-import com.dsm9.kolpop.auth.dto.SignupResponse;
-import com.dsm9.kolpop.auth.dto.SignupVerifyRequest;
-import com.dsm9.kolpop.auth.service.AuthService;
+import com.dsm9.kolpop.domain.auth.dto.FounderLoginResponse;
+import com.dsm9.kolpop.domain.auth.dto.LoginRequest;
+import com.dsm9.kolpop.domain.auth.dto.LoginResponse;
+import com.dsm9.kolpop.domain.auth.dto.LoginIdCheckRequest;
+import com.dsm9.kolpop.domain.auth.dto.ReissueResponse;
+import com.dsm9.kolpop.domain.auth.dto.SignupCodeSendRequest;
+import com.dsm9.kolpop.domain.auth.dto.SignupRequest;
+import com.dsm9.kolpop.domain.auth.dto.SignupResponse;
+import com.dsm9.kolpop.domain.auth.dto.SignupVerifyRequest;
+import com.dsm9.kolpop.domain.auth.service.AuthService;
 import com.dsm9.kolpop.global.response.ApiResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
