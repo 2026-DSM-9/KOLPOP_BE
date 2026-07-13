@@ -1,0 +1,14 @@
+package com.dsm9.kolpop.auth.dto;
+
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Pattern;
+
+public record LoginIdCheckRequest(
+        @NotBlank(message = "아이디는 필수입니다.")
+        @Pattern(
+                regexp = "^[a-zA-Z0-9_]{4,30}$",
+                message = "아이디는 영문, 숫자, 밑줄을 사용해 4자 이상 30자 이하로 입력해주세요."
+        )
+        String loginId
+) {
+}
