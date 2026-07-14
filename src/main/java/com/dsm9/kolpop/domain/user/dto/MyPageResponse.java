@@ -4,8 +4,6 @@ public record MyPageResponse(
         String name,
         String email,
         String phone,
-        String address,
-        String detailAddress,
         String introduction,
         String role
 ) {

@@ -35,6 +35,7 @@ coolsms:
   api-secret: ${COOLSMS_API_SECRET}
   sender: ${COOLSMS_SENDER}
 
+
 aws:
   s3:
     region: ${AWS_REGION}
@@ -45,6 +46,14 @@ aws:
     public-base-url: ${AWS_S3_PUBLIC_BASE_URL}
     prefix: ${AWS_S3_PREFIX}
     path-style-access-enabled: ${AWS_S3_PATH_STYLE_ACCESS_ENABLED}
+
+public-data:
+  festival:
+    endpoint: ${PUBLIC_DATA_FESTIVAL_ENDPOINT:https://api.odcloud.kr/api/15013104/v1/uddi:configure-me}
+    service-key: ${PUBLIC_DATA_SERVICE_KEY:}
+    per-page: ${PUBLIC_DATA_FESTIVAL_PER_PAGE:1000}
+    max-pages: ${PUBLIC_DATA_FESTIVAL_MAX_PAGES:10}
+    cache-ttl-seconds: ${PUBLIC_DATA_FESTIVAL_CACHE_TTL_SECONDS:21600}
 
 springdoc:
   swagger-ui:

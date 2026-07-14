@@ -15,6 +15,7 @@ public record ListingDetailResponse(
         BigDecimal area,
         Long sevenDayTotalFee,
         String landlordName,
+        Long likeCount,
         Long viewCount,
         Integer reservationCount,
         LocalDate operatingStartDate,

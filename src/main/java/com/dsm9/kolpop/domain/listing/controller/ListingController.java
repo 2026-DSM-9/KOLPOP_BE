@@ -19,6 +19,7 @@ import org.springframework.web.bind.annotation.RestController;
 import com.dsm9.kolpop.domain.listing.dto.CreateListingRequest;
 import com.dsm9.kolpop.domain.listing.dto.CreateListingResponse;
 import com.dsm9.kolpop.domain.listing.dto.CloseListingResponse;
+import com.dsm9.kolpop.domain.listing.dto.LikeListingResponse;
 import com.dsm9.kolpop.domain.listing.dto.ListingDetailResponse;
 import com.dsm9.kolpop.domain.listing.dto.ListingListResponse;
 import com.dsm9.kolpop.domain.listing.dto.ListingMapResponse;
@@ -62,10 +63,11 @@ public class ListingController {
             @RequestParam(required = false) BigDecimal minLatitude,
             @RequestParam(required = false) BigDecimal maxLatitude,
             @RequestParam(required = false) BigDecimal minLongitude,
-            @RequestParam(required = false) BigDecimal maxLongitude
+            @RequestParam(required = false) BigDecimal maxLongitude,
+            @RequestParam(required = false) String sort
     ) {
         return ApiResponse.success(
-                listingService.getListings(minLatitude, maxLatitude, minLongitude, maxLongitude)
+                listingService.getListings(minLatitude, maxLatitude, minLongitude, maxLongitude, sort)
         );
     }
 
@@ -80,6 +82,30 @@ public class ListingController {
     @Operation(summary = "매물 상세 조회")
     public ApiResponse<ListingDetailResponse> getListingDetail(@PathVariable Long listingId) {
         return ApiResponse.success(listingService.getListingDetail(listingId));
+    }
+
+    @PostMapping("/{listingId}/likes")
+    @Operation(summary = "매물 좋아요")
+    @SecurityRequirement(name = "bearerAuth")
+    public ApiResponse<LikeListingResponse> likeListing(
+            @PathVariable Long listingId,
+            Authentication authentication
+    ) {
+        return ApiResponse.success(
+                listingService.likeListing(extractUserId(authentication), listingId)
+        );
+    }
+
+    @DeleteMapping("/{listingId}/likes")
+    @Operation(summary = "매물 좋아요 취소")
+    @SecurityRequirement(name = "bearerAuth")
+    public ApiResponse<LikeListingResponse> unlikeListing(
+            @PathVariable Long listingId,
+            Authentication authentication
+    ) {
+        return ApiResponse.success(
+                listingService.unlikeListing(extractUserId(authentication), listingId)
+        );
     }
 
     @PostMapping

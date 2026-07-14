@@ -10,6 +10,7 @@ public record ListingSummaryResponse(
         Long dailyFee,
         Long deposit,
         BigDecimal area,
+        Long likeCount,
         Long viewCount,
         Integer reservationCount,
         ListingStatusResponse status
