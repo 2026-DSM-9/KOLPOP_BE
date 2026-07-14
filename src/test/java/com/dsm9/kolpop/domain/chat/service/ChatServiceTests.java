@@ -69,6 +69,25 @@ class ChatServiceTests {
     }
 
     @Test
+    void createRoomRejectsBlankFirstMessage() {
+        ChatRoomRepository chatRoomRepository = mock(ChatRoomRepository.class);
+        ChatMessageRepository chatMessageRepository = mock(ChatMessageRepository.class);
+        UserRepository userRepository = mock(UserRepository.class);
+        ListingRepository listingRepository = mock(ListingRepository.class);
+        ChatService chatService = new ChatService(chatRoomRepository, chatMessageRepository, userRepository, listingRepository);
+        User founder = createUser(2L, UserRole.FOUNDER);
+
+        when(userRepository.findById(2L)).thenReturn(Optional.of(founder));
+
+        BusinessException exception = assertThrows(
+                BusinessException.class,
+                () -> chatService.createRoom(new CreateChatRoomRequest(20L, "   "), authentication("2"))
+        );
+
+        assertEquals("INVALID_CHAT_MESSAGE_CONTENT", exception.getCode());
+    }
+
+    @Test
     void landlordCanGetPendingChatRequests() {
         ChatRoomRepository chatRoomRepository = mock(ChatRoomRepository.class);
         ChatMessageRepository chatMessageRepository = mock(ChatMessageRepository.class);

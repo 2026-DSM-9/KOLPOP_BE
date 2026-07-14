@@ -43,6 +43,7 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/listings/my").authenticated()
                         .requestMatchers(HttpMethod.GET, "/listings/liked").authenticated()
                         .requestMatchers("/reservations/**").authenticated()
+                        .requestMatchers("/chat/**").authenticated()
                         .requestMatchers("/ai/**").authenticated()
                         .anyRequest().permitAll()
                 )

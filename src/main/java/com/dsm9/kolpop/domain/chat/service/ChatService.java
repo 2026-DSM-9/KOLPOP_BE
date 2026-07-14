@@ -37,6 +37,10 @@ public class ChatService {
     @Transactional
     public ChatRoomResponse createRoom(CreateChatRoomRequest request, Authentication authentication) {
         User founder = getAuthenticatedUser(authentication);
+        String content = request.content() == null ? "" : request.content().trim();
+        if (content.isBlank()) {
+            throw new BusinessException(HttpStatus.BAD_REQUEST, "INVALID_CHAT_MESSAGE_CONTENT", "채팅 요청 메시지를 입력해주세요.");
+        }
         if (founder.getRole() != UserRole.FOUNDER) {
             throw new BusinessException(HttpStatus.FORBIDDEN, "ONLY_FOUNDER_CAN_CREATE_CHAT", "창업자만 채팅방을 만들 수 있습니다.");
         }
@@ -55,7 +59,7 @@ public class ChatService {
             return ChatRoomResponse.from(room);
         }
         if (chatMessageRepository.findFirstByRoomIdOrderByCreatedAtAsc(room.getId()).isEmpty()) {
-            chatMessageRepository.save(new ChatMessage(room, founder, request.content().trim()));
+            chatMessageRepository.save(new ChatMessage(room, founder, content));
         }
         return ChatRoomResponse.from(room);
     }
