@@ -9,21 +9,28 @@ import java.time.ZoneId;
 import java.time.temporal.ChronoUnit;
 import java.util.Base64;
 import java.util.Comparator;
+import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
-import java.util.stream.IntStream;
+import java.util.Map;
 import java.util.stream.Stream;
+import java.util.stream.Collectors;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 
 import com.dsm9.kolpop.domain.festival.client.PublicFestivalClient;
-import com.dsm9.kolpop.domain.festival.dto.FestivalCalendarDayResponse;
-import com.dsm9.kolpop.domain.festival.dto.FestivalCalendarResponse;
 import com.dsm9.kolpop.domain.festival.dto.FestivalDetailResponse;
 import com.dsm9.kolpop.domain.festival.dto.FestivalListResponse;
 import com.dsm9.kolpop.domain.festival.dto.FestivalSummaryResponse;
 import com.dsm9.kolpop.domain.festival.dto.PublicFestivalItem;
+import com.dsm9.kolpop.domain.listing.dto.ListingStatusResponse;
+import com.dsm9.kolpop.domain.listing.dto.ListingSummaryResponse;
+import com.dsm9.kolpop.domain.listing.entity.Listing;
+import com.dsm9.kolpop.domain.listing.entity.ListingStatus;
+import com.dsm9.kolpop.domain.listing.repository.ListingLikeCount;
+import com.dsm9.kolpop.domain.listing.repository.ListingLikeRepository;
+import com.dsm9.kolpop.domain.listing.repository.ListingRepository;
 import com.dsm9.kolpop.global.exception.BusinessException;
 
 @Service
@@ -33,11 +40,22 @@ public class FestivalService {
     private static final int DEFAULT_SIZE = 20;
     private static final int MAX_SIZE = 100;
     private static final ZoneId APP_ZONE = ZoneId.of("Asia/Seoul");
+    private static final double DEFAULT_NEARBY_RADIUS_KM = 3.0;
+    private static final int DEFAULT_RESERVATION_COUNT = 0;
+    private static final double EARTH_RADIUS_KM = 6371.0;
 
     private final PublicFestivalClient publicFestivalClient;
+    private final ListingRepository listingRepository;
+    private final ListingLikeRepository listingLikeRepository;
 
-    public FestivalService(PublicFestivalClient publicFestivalClient) {
+    public FestivalService(
+            PublicFestivalClient publicFestivalClient,
+            ListingRepository listingRepository,
+            ListingLikeRepository listingLikeRepository
+    ) {
         this.publicFestivalClient = publicFestivalClient;
+        this.listingRepository = listingRepository;
+        this.listingLikeRepository = listingLikeRepository;
     }
 
     public FestivalListResponse getFestivals(
@@ -100,30 +118,6 @@ public class FestivalService {
                 ));
     }
 
-    public FestivalCalendarResponse getCalendar(int year, int month) {
-        LocalDate firstDay = LocalDate.of(year, month, 1);
-        LocalDate lastDay = firstDay.withDayOfMonth(firstDay.lengthOfMonth());
-        List<PublicFestivalItem> monthFestivals = publicFestivalClient.fetchAll()
-                .stream()
-                .filter(this::hasRequiredFields)
-                .filter(item -> overlaps(item, firstDay, lastDay))
-                .toList();
-
-        List<FestivalCalendarDayResponse> days = IntStream.rangeClosed(1, firstDay.lengthOfMonth())
-                .mapToObj(day -> {
-                    LocalDate date = firstDay.withDayOfMonth(day);
-                    List<FestivalSummaryResponse> festivals = monthFestivals.stream()
-                            .filter(item -> containsDate(item, date))
-                            .sorted(Comparator.comparing(this::parseStartDate).thenComparing(this::normalizeName))
-                            .map(this::toSummaryResponse)
-                            .toList();
-                    return new FestivalCalendarDayResponse(date, festivals);
-                })
-                .toList();
-
-        return new FestivalCalendarResponse(year, month, days);
-    }
-
     private FestivalSummaryResponse toSummaryResponse(PublicFestivalItem item) {
         LocalDate startDate = parseStartDate(item);
         LocalDate endDate = parseEndDate(item);
@@ -138,6 +132,7 @@ public class FestivalService {
                 endDate,
                 resolveStatus(startDate, endDate),
                 resolveDDay(startDate, endDate),
+                getNearbyListings(item).size(),
                 parseDecimal(item.latitude()),
                 parseDecimal(item.longitude())
         );
@@ -168,7 +163,8 @@ public class FestivalService {
                 normalize(item.relatedInfo()),
                 parseDecimal(item.latitude()),
                 parseDecimal(item.longitude()),
-                parseDateOrNull(item.referenceDate())
+                parseDateOrNull(item.referenceDate()),
+                toListingSummaryResponses(getNearbyListings(item))
         );
     }
 
@@ -220,12 +216,93 @@ public class FestivalService {
         return !endDate.isBefore(queryStart) && !startDate.isAfter(queryEnd);
     }
 
-    private boolean overlaps(PublicFestivalItem item, LocalDate from, LocalDate to) {
-        return !parseEndDate(item).isBefore(from) && !parseStartDate(item).isAfter(to);
+    private List<Listing> getNearbyListings(PublicFestivalItem item) {
+        BigDecimal latitude = parseDecimal(item.latitude());
+        BigDecimal longitude = parseDecimal(item.longitude());
+        if (latitude == null || longitude == null) {
+            return Collections.emptyList();
+        }
+
+        double lat = latitude.doubleValue();
+        double lon = longitude.doubleValue();
+        double latDelta = DEFAULT_NEARBY_RADIUS_KM / 111.32;
+        double cosLat = Math.cos(Math.toRadians(lat));
+        double lonDelta = Math.abs(cosLat) < 0.000001
+                ? 180.0
+                : DEFAULT_NEARBY_RADIUS_KM / (111.32 * Math.abs(cosLat));
+
+        return listingRepository.findAllByStatusAndLatitudeBetweenAndLongitudeBetweenOrderByCreatedAtDesc(
+                        ListingStatus.RECRUITING,
+                        BigDecimal.valueOf(lat - latDelta),
+                        BigDecimal.valueOf(lat + latDelta),
+                        BigDecimal.valueOf(lon - lonDelta),
+                        BigDecimal.valueOf(lon + lonDelta)
+                )
+                .stream()
+                .filter(listing -> distanceKm(lat, lon, listing.getLatitude().doubleValue(), listing.getLongitude().doubleValue())
+                        <= DEFAULT_NEARBY_RADIUS_KM)
+                .toList();
     }
 
-    private boolean containsDate(PublicFestivalItem item, LocalDate date) {
-        return !date.isBefore(parseStartDate(item)) && !date.isAfter(parseEndDate(item));
+    private List<ListingSummaryResponse> toListingSummaryResponses(List<Listing> listings) {
+        Map<Long, Long> likeCounts = getLikeCounts(listings);
+        return listings.stream()
+                .map(listing -> toListingSummaryResponse(listing, likeCounts.getOrDefault(listing.getId(), 0L)))
+                .toList();
+    }
+
+    private ListingSummaryResponse toListingSummaryResponse(Listing listing, Long likeCount) {
+        return new ListingSummaryResponse(
+                listing.getId(),
+                listing.getTitle(),
+                getThumbnailUrl(listing),
+                buildFullAddress(listing),
+                listing.getDailyFee(),
+                listing.getDeposit(),
+                listing.getArea(),
+                likeCount,
+                listing.getViewCount(),
+                DEFAULT_RESERVATION_COUNT,
+                new ListingStatusResponse(listing.getStatus().getCode(), listing.getStatus().getLabel())
+        );
+    }
+
+    private Map<Long, Long> getLikeCounts(List<Listing> listings) {
+        if (listings.isEmpty()) {
+            return Collections.emptyMap();
+        }
+
+        List<Long> listingIds = listings.stream()
+                .map(Listing::getId)
+                .toList();
+
+        return listingLikeRepository.countByListingIds(listingIds)
+                .stream()
+                .collect(Collectors.toMap(ListingLikeCount::getListingId, ListingLikeCount::getLikeCount));
+    }
+
+    private String getThumbnailUrl(Listing listing) {
+        if (listing.getImageUrls().isEmpty()) {
+            return null;
+        }
+        return listing.getImageUrls().getFirst();
+    }
+
+    private String buildFullAddress(Listing listing) {
+        if (listing.getDetailAddress() == null || listing.getDetailAddress().isBlank()) {
+            return listing.getAddress();
+        }
+        return listing.getAddress() + " " + listing.getDetailAddress();
+    }
+
+    private double distanceKm(double lat1, double lon1, double lat2, double lon2) {
+        double latDistance = Math.toRadians(lat2 - lat1);
+        double lonDistance = Math.toRadians(lon2 - lon1);
+        double a = Math.sin(latDistance / 2) * Math.sin(latDistance / 2)
+                + Math.cos(Math.toRadians(lat1)) * Math.cos(Math.toRadians(lat2))
+                * Math.sin(lonDistance / 2) * Math.sin(lonDistance / 2);
+        double c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+        return EARTH_RADIUS_KM * c;
     }
 
     private LocalDate parseStartDate(PublicFestivalItem item) {

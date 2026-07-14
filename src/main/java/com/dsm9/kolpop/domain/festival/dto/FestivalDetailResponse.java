@@ -2,6 +2,9 @@ package com.dsm9.kolpop.domain.festival.dto;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.List;
+
+import com.dsm9.kolpop.domain.listing.dto.ListingSummaryResponse;
 
 public record FestivalDetailResponse(
         String id,
@@ -24,6 +27,7 @@ public record FestivalDetailResponse(
         String relatedInfo,
         BigDecimal latitude,
         BigDecimal longitude,
-        LocalDate referenceDate
+        LocalDate referenceDate,
+        List<ListingSummaryResponse> nearbyListings
 ) {
 }

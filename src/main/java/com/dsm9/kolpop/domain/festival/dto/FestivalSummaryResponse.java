@@ -13,6 +13,7 @@ public record FestivalSummaryResponse(
         LocalDate endDate,
         String status,
         long dDay,
+        int nearbyListingCount,
         BigDecimal latitude,
         BigDecimal longitude
 ) {
