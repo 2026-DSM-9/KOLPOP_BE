@@ -49,7 +49,7 @@ aws:
 
 public-data:
   festival:
-    endpoint: ${PUBLIC_DATA_FESTIVAL_ENDPOINT:https://api.odcloud.kr/api/15013104/v1/uddi:configure-me}
+    endpoint: ${PUBLIC_DATA_FESTIVAL_ENDPOINT:https://api.data.go.kr/openapi/tn_pubr_public_cltur_fstvl_api}
     service-key: ${PUBLIC_DATA_SERVICE_KEY:}
     per-page: ${PUBLIC_DATA_FESTIVAL_PER_PAGE:1000}
     max-pages: ${PUBLIC_DATA_FESTIVAL_MAX_PAGES:10}

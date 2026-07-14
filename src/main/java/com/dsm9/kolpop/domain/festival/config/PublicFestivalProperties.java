@@ -7,7 +7,7 @@ import org.springframework.stereotype.Component;
 @ConfigurationProperties(prefix = "public-data.festival")
 public class PublicFestivalProperties {
 
-    private String endpoint = "https://api.odcloud.kr/api/15013104/v1/uddi:configure-me";
+    private String endpoint = "https://api.data.go.kr/openapi/tn_pubr_public_cltur_fstvl_api";
     private String serviceKey = "";
     private int perPage = 1000;
     private int maxPages = 10;

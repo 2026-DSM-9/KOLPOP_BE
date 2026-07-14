@@ -1,11 +1,14 @@
 package com.dsm9.kolpop.domain.festival.client;
 
 import java.net.URI;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.regex.Pattern;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
@@ -22,6 +25,7 @@ public class PublicFestivalClient {
 
     private static final int MIN_PAGE = 1;
     private static final String NOT_CONFIGURED_ENDPOINT_SUFFIX = "configure-me";
+    private static final Pattern ENCODED_OCTET = Pattern.compile("%[0-9a-fA-F]{2}");
 
     private final RestClient restClient;
     private final PublicFestivalProperties properties;
@@ -63,9 +67,10 @@ public class PublicFestivalClient {
     private PublicFestivalApiResponse fetchPage(int page) {
         URI uri = UriComponentsBuilder
                 .fromUriString(properties.getEndpoint())
-                .queryParam("page", page)
-                .queryParam("perPage", properties.getPerPage())
-                .queryParam("serviceKey", properties.getServiceKey())
+                .queryParam("pageNo", page)
+                .queryParam("numOfRows", properties.getPerPage())
+                .queryParam("type", "json")
+                .queryParam("serviceKey", encodeServiceKey(properties.getServiceKey()))
                 .build(true)
                 .toUri();
 
@@ -88,6 +93,14 @@ public class PublicFestivalClient {
                 && Duration.between(cachedAt, Instant.now()).getSeconds() < properties.getCacheTtlSeconds();
     }
 
+    private String encodeServiceKey(String serviceKey) {
+        String trimmed = serviceKey.trim();
+        if (ENCODED_OCTET.matcher(trimmed).find()) {
+            return trimmed;
+        }
+        return URLEncoder.encode(trimmed, StandardCharsets.UTF_8).replace("+", "%20");
+    }
+
     private void validateConfiguration() {
         if (isBlank(properties.getEndpoint()) || properties.getEndpoint().endsWith(NOT_CONFIGURED_ENDPOINT_SUFFIX)) {
             throw new BusinessException(
@@ -101,7 +114,7 @@ public class PublicFestivalClient {
             throw new BusinessException(
                     HttpStatus.SERVICE_UNAVAILABLE,
                     "PUBLIC_DATA_SERVICE_KEY_NOT_CONFIGURED",
-                    "공공데이터 서비스 키 설정이 필요합니다."
+                    "공공데이터 서비스키 설정이 필요합니다."
             );
         }
     }
