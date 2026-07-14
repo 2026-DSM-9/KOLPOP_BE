@@ -232,11 +232,11 @@ public class AuthService {
     }
 
     private LoginTokens login(LoginRequest request, UserRole requestedRole) {
-        User user = userRepository.findByPhone(normalizePhone(request.phone()))
-                .orElseThrow(() -> new BusinessException(HttpStatus.UNAUTHORIZED, "INVALID_LOGIN", "전화번호 또는 비밀번호가 올바르지 않습니다."));
+        User user = userRepository.findByLoginId(request.loginId().trim())
+                .orElseThrow(() -> new BusinessException(HttpStatus.UNAUTHORIZED, "INVALID_LOGIN", "아이디 또는 비밀번호가 올바르지 않습니다."));
 
         if (!passwordEncoder.matches(request.password(), user.getPassword())) {
-            throw new BusinessException(HttpStatus.UNAUTHORIZED, "INVALID_LOGIN", "전화번호 또는 비밀번호가 올바르지 않습니다.");
+            throw new BusinessException(HttpStatus.UNAUTHORIZED, "INVALID_LOGIN", "아이디 또는 비밀번호가 올바르지 않습니다.");
         }
 
         String accessToken = jwtTokenProvider.createAccessToken(user);
