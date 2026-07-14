@@ -37,6 +37,44 @@ public interface ListingRepository extends JpaRepository<Listing, Long> {
     @Query("""
             select l
             from Listing l
+            where l.status = :status
+              and (
+                lower(l.address) like lower(concat('%', :keyword, '%'))
+                or lower(coalesce(l.detailAddress, '')) like lower(concat('%', :keyword, '%'))
+                or lower(l.title) like lower(concat('%', :keyword, '%'))
+              )
+            order by l.createdAt desc
+            """)
+    List<Listing> findAllByStatusAndKeywordOrderByCreatedAtDesc(
+            @Param("status") ListingStatus status,
+            @Param("keyword") String keyword
+    );
+
+    @Query("""
+            select l
+            from Listing l
+            where l.status = :status
+              and l.latitude between :minLatitude and :maxLatitude
+              and l.longitude between :minLongitude and :maxLongitude
+              and (
+                lower(l.address) like lower(concat('%', :keyword, '%'))
+                or lower(coalesce(l.detailAddress, '')) like lower(concat('%', :keyword, '%'))
+                or lower(l.title) like lower(concat('%', :keyword, '%'))
+              )
+            order by l.createdAt desc
+            """)
+    List<Listing> findAllByStatusAndBoundsAndKeywordOrderByCreatedAtDesc(
+            @Param("status") ListingStatus status,
+            @Param("minLatitude") BigDecimal minLatitude,
+            @Param("maxLatitude") BigDecimal maxLatitude,
+            @Param("minLongitude") BigDecimal minLongitude,
+            @Param("maxLongitude") BigDecimal maxLongitude,
+            @Param("keyword") String keyword
+    );
+
+    @Query("""
+            select l
+            from Listing l
             left join ListingLike ll on ll.listing = l
             where l.status = :status
               and l.latitude between :minLatitude and :maxLatitude

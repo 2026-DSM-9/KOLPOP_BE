@@ -1,6 +1,7 @@
 package com.dsm9.kolpop.domain.listing.controller;
 
 import java.math.BigDecimal;
+import java.util.List;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -20,6 +21,7 @@ import com.dsm9.kolpop.domain.listing.dto.CreateListingRequest;
 import com.dsm9.kolpop.domain.listing.dto.CreateListingResponse;
 import com.dsm9.kolpop.domain.listing.dto.CloseListingResponse;
 import com.dsm9.kolpop.domain.listing.dto.LikeListingResponse;
+import com.dsm9.kolpop.domain.listing.dto.ListingAddressSuggestionResponse;
 import com.dsm9.kolpop.domain.listing.dto.ListingDetailResponse;
 import com.dsm9.kolpop.domain.listing.dto.ListingListResponse;
 import com.dsm9.kolpop.domain.listing.dto.ListingMapResponse;
@@ -47,14 +49,24 @@ public class ListingController {
     @GetMapping("/map")
     @Operation(summary = "지도용 매물 조회")
     public ApiResponse<ListingMapResponse> getListingsForMap(
-            @RequestParam BigDecimal minLatitude,
-            @RequestParam BigDecimal maxLatitude,
-            @RequestParam BigDecimal minLongitude,
-            @RequestParam BigDecimal maxLongitude
+            @RequestParam(required = false) BigDecimal minLatitude,
+            @RequestParam(required = false) BigDecimal maxLatitude,
+            @RequestParam(required = false) BigDecimal minLongitude,
+            @RequestParam(required = false) BigDecimal maxLongitude,
+            @RequestParam(required = false) String keyword
     ) {
         return ApiResponse.success(
-                listingService.getListingsForMap(minLatitude, maxLatitude, minLongitude, maxLongitude)
+                listingService.getListingsForMap(minLatitude, maxLatitude, minLongitude, maxLongitude, keyword)
         );
+    }
+
+    @GetMapping("/address-suggestions")
+    @Operation(summary = "매물 주소 검색어 추천")
+    public ApiResponse<List<ListingAddressSuggestionResponse>> getAddressSuggestions(
+            @RequestParam String keyword,
+            @RequestParam(required = false) Integer limit
+    ) {
+        return ApiResponse.success(listingService.getAddressSuggestions(keyword, limit));
     }
 
     @GetMapping
@@ -64,10 +76,11 @@ public class ListingController {
             @RequestParam(required = false) BigDecimal maxLatitude,
             @RequestParam(required = false) BigDecimal minLongitude,
             @RequestParam(required = false) BigDecimal maxLongitude,
+            @RequestParam(required = false) String keyword,
             @RequestParam(required = false) String sort
     ) {
         return ApiResponse.success(
-                listingService.getListings(minLatitude, maxLatitude, minLongitude, maxLongitude, sort)
+                listingService.getListings(minLatitude, maxLatitude, minLongitude, maxLongitude, keyword, sort)
         );
     }
 

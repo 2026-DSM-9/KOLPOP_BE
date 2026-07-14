@@ -3,6 +3,7 @@ package com.dsm9.kolpop.domain.listing.service;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -17,6 +18,7 @@ import com.dsm9.kolpop.domain.listing.dto.CloseListingResponse;
 import com.dsm9.kolpop.domain.listing.dto.CreateListingRequest;
 import com.dsm9.kolpop.domain.listing.dto.CreateListingResponse;
 import com.dsm9.kolpop.domain.listing.dto.LikeListingResponse;
+import com.dsm9.kolpop.domain.listing.dto.ListingAddressSuggestionResponse;
 import com.dsm9.kolpop.domain.listing.dto.ListingDetailResponse;
 import com.dsm9.kolpop.domain.listing.dto.ListingListResponse;
 import com.dsm9.kolpop.domain.listing.dto.ListingMapItemResponse;
@@ -38,6 +40,8 @@ import com.dsm9.kolpop.global.exception.BusinessException;
 public class ListingService {
 
     private static final int DEFAULT_RESERVATION_COUNT = 0;
+    private static final int DEFAULT_ADDRESS_SUGGESTION_LIMIT = 5;
+    private static final int MAX_ADDRESS_SUGGESTION_LIMIT = 20;
     private static final String POPULAR_SORT = "popular";
 
     private final ListingRepository listingRepository;
@@ -130,21 +134,52 @@ public class ListingService {
             BigDecimal minLongitude,
             BigDecimal maxLongitude
     ) {
-        validateBounds(minLatitude, maxLatitude, minLongitude, maxLongitude);
+        return getListingsForMap(minLatitude, maxLatitude, minLongitude, maxLongitude, null);
+    }
 
-        List<ListingMapItemResponse> listings = listingRepository
-                .findAllByStatusAndLatitudeBetweenAndLongitudeBetweenOrderByCreatedAtDesc(
-                        ListingStatus.RECRUITING,
-                        minLatitude,
-                        maxLatitude,
-                        minLongitude,
-                        maxLongitude
-                )
-                .stream()
+    @Transactional(readOnly = true)
+    public ListingMapResponse getListingsForMap(
+            BigDecimal minLatitude,
+            BigDecimal maxLatitude,
+            BigDecimal minLongitude,
+            BigDecimal maxLongitude,
+            String keyword
+    ) {
+        List<Listing> foundListings = findMapListings(minLatitude, maxLatitude, minLongitude, maxLongitude, keyword);
+
+        List<ListingMapItemResponse> listings = foundListings.stream()
                 .map(this::toMapItemResponse)
                 .toList();
 
         return new ListingMapResponse(listings.size(), listings);
+    }
+
+    @Transactional(readOnly = true)
+    public List<ListingAddressSuggestionResponse> getAddressSuggestions(String keyword, Integer limit) {
+        String normalizedKeyword = normalizeNullable(keyword);
+        if (normalizedKeyword == null) {
+            throw new BusinessException(HttpStatus.BAD_REQUEST, "SEARCH_KEYWORD_REQUIRED", "검색어를 입력해주세요.");
+        }
+
+        int normalizedLimit = normalizeAddressSuggestionLimit(limit);
+        Map<String, ListingAddressSuggestionResponse> suggestions = new LinkedHashMap<>();
+
+        for (Listing listing : listingRepository.findAllByStatusAndKeywordOrderByCreatedAtDesc(
+                ListingStatus.RECRUITING,
+                normalizedKeyword
+        )) {
+            ListingAddressSuggestionResponse suggestion = new ListingAddressSuggestionResponse(
+                    listing.getAddress(),
+                    listing.getDetailAddress(),
+                    buildFullAddress(listing)
+            );
+            suggestions.putIfAbsent(suggestion.fullAddress(), suggestion);
+            if (suggestions.size() >= normalizedLimit) {
+                break;
+            }
+        }
+
+        return List.copyOf(suggestions.values());
     }
 
     @Transactional(readOnly = true)
@@ -155,7 +190,19 @@ public class ListingService {
             BigDecimal maxLongitude,
             String sort
     ) {
-        List<Listing> foundListings = findListings(minLatitude, maxLatitude, minLongitude, maxLongitude, sort);
+        return getListings(minLatitude, maxLatitude, minLongitude, maxLongitude, null, sort);
+    }
+
+    @Transactional(readOnly = true)
+    public ListingListResponse getListings(
+            BigDecimal minLatitude,
+            BigDecimal maxLatitude,
+            BigDecimal minLongitude,
+            BigDecimal maxLongitude,
+            String keyword,
+            String sort
+    ) {
+        List<Listing> foundListings = findListings(minLatitude, maxLatitude, minLongitude, maxLongitude, keyword, sort);
         Map<Long, Long> likeCounts = getLikeCounts(foundListings);
 
         List<ListingSummaryResponse> listings = foundListings.stream()
@@ -293,15 +340,24 @@ public class ListingService {
             BigDecimal maxLatitude,
             BigDecimal minLongitude,
             BigDecimal maxLongitude,
+            String keyword,
             String sort
     ) {
         boolean hasNoBounds = minLatitude == null
                 && maxLatitude == null
                 && minLongitude == null
                 && maxLongitude == null;
+        String normalizedKeyword = normalizeNullable(keyword);
+        boolean hasKeyword = normalizedKeyword != null;
         boolean popularSort = POPULAR_SORT.equalsIgnoreCase(normalizeNullable(sort));
 
         if (hasNoBounds) {
+            if (hasKeyword) {
+                return listingRepository.findAllByStatusAndKeywordOrderByCreatedAtDesc(
+                        ListingStatus.RECRUITING,
+                        normalizedKeyword
+                );
+            }
             if (popularSort) {
                 return listingRepository.findAllByStatusOrderByLikeCountDesc(ListingStatus.RECRUITING);
             }
@@ -313,6 +369,16 @@ public class ListingService {
         }
 
         validateBounds(minLatitude, maxLatitude, minLongitude, maxLongitude);
+        if (hasKeyword) {
+            return listingRepository.findAllByStatusAndBoundsAndKeywordOrderByCreatedAtDesc(
+                    ListingStatus.RECRUITING,
+                    minLatitude,
+                    maxLatitude,
+                    minLongitude,
+                    maxLongitude,
+                    normalizedKeyword
+            );
+        }
         if (popularSort) {
             return listingRepository.findAllByStatusAndBoundsOrderByLikeCountDesc(
                     ListingStatus.RECRUITING,
@@ -322,6 +388,56 @@ public class ListingService {
                     maxLongitude
             );
         }
+        return listingRepository.findAllByStatusAndLatitudeBetweenAndLongitudeBetweenOrderByCreatedAtDesc(
+                ListingStatus.RECRUITING,
+                minLatitude,
+                maxLatitude,
+                minLongitude,
+                maxLongitude
+        );
+    }
+
+    private List<Listing> findMapListings(
+            BigDecimal minLatitude,
+            BigDecimal maxLatitude,
+            BigDecimal minLongitude,
+            BigDecimal maxLongitude,
+            String keyword
+    ) {
+        String normalizedKeyword = normalizeNullable(keyword);
+        boolean hasKeyword = normalizedKeyword != null;
+        boolean hasNoBounds = minLatitude == null
+                && maxLatitude == null
+                && minLongitude == null
+                && maxLongitude == null;
+
+        if (hasNoBounds) {
+            if (!hasKeyword) {
+                throw new BusinessException(HttpStatus.BAD_REQUEST, "MAP_BOUNDS_OR_KEYWORD_REQUIRED", "지도 조회에는 좌표 범위 또는 검색어가 필요합니다.");
+            }
+            return listingRepository.findAllByStatusAndKeywordOrderByCreatedAtDesc(
+                    ListingStatus.RECRUITING,
+                    normalizedKeyword
+            );
+        }
+
+        if (minLatitude == null || maxLatitude == null || minLongitude == null || maxLongitude == null) {
+            throw new BusinessException(HttpStatus.BAD_REQUEST, "MAP_BOUNDS_REQUIRED", "지도 범위 조회 시 위도/경도 범위를 모두 전달해야 합니다.");
+        }
+
+        validateBounds(minLatitude, maxLatitude, minLongitude, maxLongitude);
+
+        if (hasKeyword) {
+            return listingRepository.findAllByStatusAndBoundsAndKeywordOrderByCreatedAtDesc(
+                    ListingStatus.RECRUITING,
+                    minLatitude,
+                    maxLatitude,
+                    minLongitude,
+                    maxLongitude,
+                    normalizedKeyword
+            );
+        }
+
         return listingRepository.findAllByStatusAndLatitudeBetweenAndLongitudeBetweenOrderByCreatedAtDesc(
                 ListingStatus.RECRUITING,
                 minLatitude,
@@ -436,6 +552,13 @@ public class ListingService {
 
         String normalized = value.trim();
         return normalized.isBlank() ? null : normalized;
+    }
+
+    private int normalizeAddressSuggestionLimit(Integer limit) {
+        if (limit == null) {
+            return DEFAULT_ADDRESS_SUGGESTION_LIMIT;
+        }
+        return Math.min(Math.max(limit, 1), MAX_ADDRESS_SUGGESTION_LIMIT);
     }
 
     private String buildFullAddress(Listing listing) {
