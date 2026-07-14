@@ -1,5 +1,14 @@
 package com.dsm9.kolpop.domain.chat.service;
 
+import java.security.Principal;
+import java.time.LocalDateTime;
+import java.util.List;
+
+import org.springframework.http.HttpStatus;
+import org.springframework.security.core.Authentication;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
 import com.dsm9.kolpop.domain.auth.repository.UserRepository;
 import com.dsm9.kolpop.domain.chat.dto.ChatMessageRequest;
 import com.dsm9.kolpop.domain.chat.dto.ChatMessageResponse;
@@ -12,18 +21,13 @@ import com.dsm9.kolpop.domain.chat.repository.ChatMessageRepository;
 import com.dsm9.kolpop.domain.chat.repository.ChatRoomRepository;
 import com.dsm9.kolpop.domain.listing.entity.Listing;
 import com.dsm9.kolpop.domain.listing.repository.ListingRepository;
+import com.dsm9.kolpop.domain.reservation.entity.ReservationStatus;
+import com.dsm9.kolpop.domain.reservation.repository.ReservationRepository;
 import com.dsm9.kolpop.domain.user.entity.User;
 import com.dsm9.kolpop.domain.user.entity.UserRole;
 import com.dsm9.kolpop.global.exception.BusinessException;
-import lombok.RequiredArgsConstructor;
-import org.springframework.http.HttpStatus;
-import org.springframework.security.core.Authentication;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
-import java.security.Principal;
-import java.time.LocalDateTime;
-import java.util.List;
+import lombok.RequiredArgsConstructor;
 
 @RequiredArgsConstructor
 @Service
@@ -33,6 +37,7 @@ public class ChatService {
     private final ChatMessageRepository chatMessageRepository;
     private final UserRepository userRepository;
     private final ListingRepository listingRepository;
+    private final ReservationRepository reservationRepository;
 
     @Transactional
     public ChatRoomResponse createRoom(CreateChatRoomRequest request, Authentication authentication) {
@@ -41,22 +46,19 @@ public class ChatService {
             throw new BusinessException(HttpStatus.FORBIDDEN, "ONLY_FOUNDER_CAN_CREATE_CHAT", "창업자만 채팅방을 만들 수 있습니다.");
         }
 
-        Listing listing = listingRepository.findById(request.listingId())
-                .orElseThrow(() -> new BusinessException(HttpStatus.NOT_FOUND, "LISTING_NOT_FOUND", "매물을 찾을 수 없습니다."));
+        Listing listing = findListing(request.listingId());
         User landlord = listing.getLandlord();
         if (landlord.getRole() != UserRole.LANDLORD) {
             throw new BusinessException(HttpStatus.BAD_REQUEST, "TARGET_MUST_BE_LANDLORD", "임대인과만 채팅방을 만들 수 있습니다.");
         }
+
         ChatRoom room = chatRoomRepository.findByFounderIdAndLandlordIdAndListingId(
-                        founder.getId(), landlord.getId(), listing.getId()
+                        founder.getId(),
+                        landlord.getId(),
+                        listing.getId()
                 )
-                .orElseGet(() -> chatRoomRepository.save(new ChatRoom(founder, landlord, listing)));
-        if (room.isAccepted()) {
-            return ChatRoomResponse.from(room);
-        }
-        if (chatMessageRepository.findFirstByRoomIdOrderByCreatedAtAsc(room.getId()).isEmpty()) {
-            chatMessageRepository.save(new ChatMessage(room, founder, request.content().trim()));
-        }
+                .orElseGet(() -> createAcceptedRoomAfterReservationApproval(founder, landlord, listing, request.content()));
+
         return ChatRoomResponse.from(room);
     }
 
@@ -127,6 +129,33 @@ public class ChatService {
         return ChatMessageResponse.from(message);
     }
 
+    private ChatRoom createAcceptedRoomAfterReservationApproval(
+            User founder,
+            User landlord,
+            Listing listing,
+            String content
+    ) {
+        boolean approvedReservationExists = reservationRepository.existsByFounderIdAndListingIdAndStatus(
+                founder.getId(),
+                listing.getId(),
+                ReservationStatus.APPROVED
+        );
+
+        if (!approvedReservationExists) {
+            throw new BusinessException(
+                    HttpStatus.FORBIDDEN,
+                    "RESERVATION_APPROVAL_REQUIRED",
+                    "임대인 승인 후 채팅을 시작할 수 있습니다."
+            );
+        }
+
+        ChatRoom room = new ChatRoom(founder, landlord, listing);
+        room.accept(LocalDateTime.now());
+        ChatRoom savedRoom = chatRoomRepository.save(room);
+        chatMessageRepository.save(new ChatMessage(savedRoom, founder, content.trim()));
+        return savedRoom;
+    }
+
     private ChatRoomRequestResponse toRoomRequestResponse(ChatRoom room) {
         ChatMessage message = chatMessageRepository.findFirstByRoomIdOrderByCreatedAtAsc(room.getId())
                 .orElseThrow(() -> new BusinessException(HttpStatus.NOT_FOUND, "CHAT_REQUEST_MESSAGE_NOT_FOUND", "채팅 요청 메시지를 찾을 수 없습니다."));
@@ -153,6 +182,11 @@ public class ChatService {
             throw new BusinessException(HttpStatus.UNAUTHORIZED, "AUTHENTICATION_REQUIRED", "로그인이 필요합니다.");
         }
         return findUser(parseUserId(authentication.getName()));
+    }
+
+    private Listing findListing(Long listingId) {
+        return listingRepository.findById(listingId)
+                .orElseThrow(() -> new BusinessException(HttpStatus.NOT_FOUND, "LISTING_NOT_FOUND", "매물을 찾을 수 없습니다."));
     }
 
     private User findUser(Long userId) {
