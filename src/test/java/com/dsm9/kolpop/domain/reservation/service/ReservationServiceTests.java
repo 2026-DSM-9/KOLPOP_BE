@@ -153,7 +153,7 @@ class ReservationServiceTests {
 
         when(userRepository.findById(1L)).thenReturn(Optional.of(landlord));
         when(reservationRepository.findById(300L)).thenReturn(Optional.of(reservation));
-        when(chatRoomRepository.findByFounderIdAndLandlordIdAndListingId(2L, 1L, 10L)).thenReturn(Optional.empty());
+        when(chatRoomRepository.findByFounderIdAndListingId(2L, 10L)).thenReturn(Optional.empty());
         when(chatRoomRepository.save(any(ChatRoom.class))).thenAnswer(invocation -> {
             ChatRoom room = invocation.getArgument(0);
             ReflectionTestUtils.setField(room, "id", 500L);

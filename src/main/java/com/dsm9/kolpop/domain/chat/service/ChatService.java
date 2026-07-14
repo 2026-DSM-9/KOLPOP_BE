@@ -55,12 +55,7 @@ public class ChatService {
         if (landlord.getRole() != UserRole.LANDLORD) {
             throw new BusinessException(HttpStatus.BAD_REQUEST, "TARGET_MUST_BE_LANDLORD", "임대인과만 채팅방을 만들 수 있습니다.");
         }
-
-        ChatRoom room = chatRoomRepository.findByFounderIdAndLandlordIdAndListingId(
-                        founder.getId(),
-                        landlord.getId(),
-                        listing.getId()
-                )
+        ChatRoom room = chatRoomRepository.findByFounderIdAndListingId(founder.getId(), listing.getId())
                 .orElseGet(() -> chatRoomRepository.save(new ChatRoom(founder, landlord, listing)));
         if (room.isAccepted()) {
             return ChatRoomResponse.from(room);

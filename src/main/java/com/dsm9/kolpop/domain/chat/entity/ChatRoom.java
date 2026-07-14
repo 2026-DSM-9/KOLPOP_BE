@@ -21,8 +21,8 @@ import java.time.LocalDateTime;
 @Table(
         name = "chat_rooms",
         uniqueConstraints = @UniqueConstraint(
-                name = "uk_chat_rooms_founder_landlord_listing",
-                columnNames = {"founder_id", "landlord_id", "listing_id"}
+                name = "uk_chat_rooms_founder_listing",
+                columnNames = {"founder_id", "listing_id"}
         )
 )
 public class ChatRoom {

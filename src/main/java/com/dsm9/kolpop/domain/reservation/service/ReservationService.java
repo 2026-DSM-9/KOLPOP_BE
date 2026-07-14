@@ -115,9 +115,8 @@ public class ReservationService {
         );
 
         reservation.approve(LocalDateTime.now());
-        ChatRoom chatRoom = chatRoomRepository.findByFounderIdAndLandlordIdAndListingId(
+        ChatRoom chatRoom = chatRoomRepository.findByFounderIdAndListingId(
                         reservation.getFounder().getId(),
-                        landlord.getId(),
                         reservation.getListing().getId()
                 )
                 .orElseGet(() -> chatRoomRepository.save(new ChatRoom(
