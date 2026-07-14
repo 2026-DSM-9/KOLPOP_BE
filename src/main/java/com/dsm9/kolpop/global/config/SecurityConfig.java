@@ -27,6 +27,7 @@ public class SecurityConfig {
                 .authorizeHttpRequests(authorize -> authorize
                         .requestMatchers("/auth/logout", "/auth/reset", "/files/**").authenticated()
                         .requestMatchers(HttpMethod.POST, "/listings").authenticated()
+                        .requestMatchers(HttpMethod.PUT, "/listings/**").authenticated()
                         .requestMatchers(HttpMethod.DELETE, "/listings/**").authenticated()
                         .requestMatchers(HttpMethod.GET, "/listings/my").authenticated()
                         .anyRequest().permitAll()

@@ -23,6 +23,7 @@ import com.dsm9.kolpop.domain.listing.dto.CreateListingResponse;
 import com.dsm9.kolpop.domain.listing.dto.ListingDetailResponse;
 import com.dsm9.kolpop.domain.listing.dto.ListingListResponse;
 import com.dsm9.kolpop.domain.listing.dto.ListingMapResponse;
+import com.dsm9.kolpop.domain.listing.dto.UpdateListingResponse;
 import com.dsm9.kolpop.domain.listing.entity.Listing;
 import com.dsm9.kolpop.domain.listing.repository.ListingRepository;
 import com.dsm9.kolpop.domain.user.entity.User;
@@ -64,6 +65,48 @@ class ListingServiceTests {
         );
 
         assertEquals("LANDLORD_ONLY", exception.getCode());
+    }
+
+    @Test
+    void ownerCanUpdateListing() {
+        ListingRepository listingRepository = mock(ListingRepository.class);
+        UserRepository userRepository = mock(UserRepository.class);
+        ListingService listingService = new ListingService(listingRepository, userRepository);
+        User landlord = createUser(1L, UserRole.LANDLORD);
+        Listing listing = createListing(landlord);
+        ReflectionTestUtils.setField(listing, "id", 11L);
+
+        when(userRepository.findById(1L)).thenReturn(Optional.of(landlord));
+        when(listingRepository.findById(11L)).thenReturn(Optional.of(listing));
+
+        UpdateListingResponse response = listingService.updateListing(1L, 11L, createUpdatedRequest());
+
+        assertEquals(11L, response.listingId());
+        assertEquals("성수동 전시 공간", listing.getTitle());
+        assertEquals("서울 성동구 성수이로 87 1층", listing.getAddress() + " " + listing.getDetailAddress());
+        assertEquals(220000L, listing.getDailyFee());
+        assertEquals(2, listing.getImageUrls().size());
+    }
+
+    @Test
+    void otherLandlordCannotUpdateListing() {
+        ListingRepository listingRepository = mock(ListingRepository.class);
+        UserRepository userRepository = mock(UserRepository.class);
+        ListingService listingService = new ListingService(listingRepository, userRepository);
+        User owner = createUser(1L, UserRole.LANDLORD);
+        User anotherLandlord = createUser(2L, UserRole.LANDLORD);
+        Listing listing = createListing(owner);
+        ReflectionTestUtils.setField(listing, "id", 12L);
+
+        when(userRepository.findById(2L)).thenReturn(Optional.of(anotherLandlord));
+        when(listingRepository.findById(12L)).thenReturn(Optional.of(listing));
+
+        BusinessException exception = assertThrows(
+                BusinessException.class,
+                () -> listingService.updateListing(2L, 12L, createUpdatedRequest())
+        );
+
+        assertEquals("LISTING_UPDATE_FORBIDDEN", exception.getCode());
     }
 
     @Test
@@ -244,6 +287,32 @@ class ListingServiceTests {
                 7,
                 "홍대 메인 거리 인근에 위치한 1층 팝업 공간입니다.",
                 List.of("#홍대", "#1층", "#유동인구많음")
+        );
+    }
+
+    private CreateListingRequest createUpdatedRequest() {
+        return new CreateListingRequest(
+                "성수동 전시 공간",
+                List.of(
+                        "https://cdn.example.com/listings/10.jpg",
+                        "https://cdn.example.com/listings/11.jpg"
+                ),
+                "서울 성동구 성수이로 87",
+                "1층",
+                new BigDecimal("37.5442000"),
+                new BigDecimal("127.0557000"),
+                220000L,
+                1500000L,
+                new BigDecimal("82.6"),
+                List.of("조명", "피팅룸", "대형거울"),
+                List.of("소음 발생 업종 제한"),
+                List.of("벽면 타공 불가"),
+                LocalDate.of(2026, 8, 1),
+                LocalDate.of(2026, 8, 31),
+                2,
+                10,
+                "성수동 메인 골목 인근 전시 공간입니다.",
+                List.of("#성수", "#전시", "#팝업")
         );
     }
 

@@ -18,6 +18,7 @@ import com.dsm9.kolpop.domain.listing.dto.ListingMapItemResponse;
 import com.dsm9.kolpop.domain.listing.dto.ListingMapResponse;
 import com.dsm9.kolpop.domain.listing.dto.ListingStatusResponse;
 import com.dsm9.kolpop.domain.listing.dto.ListingSummaryResponse;
+import com.dsm9.kolpop.domain.listing.dto.UpdateListingResponse;
 import com.dsm9.kolpop.domain.listing.entity.Listing;
 import com.dsm9.kolpop.domain.listing.repository.ListingRepository;
 import com.dsm9.kolpop.domain.user.entity.User;
@@ -68,6 +69,36 @@ public class ListingService {
 
         Listing savedListing = listingRepository.save(listing);
         return new CreateListingResponse(savedListing.getId());
+    }
+
+    @Transactional
+    public UpdateListingResponse updateListing(Long userId, Long listingId, CreateListingRequest request) {
+        User landlord = getLandlord(userId);
+        Listing listing = getOwnedListing(landlord, listingId, "LISTING_UPDATE_FORBIDDEN", "본인이 등록한 매물만 수정할 수 있습니다.");
+        validatePeriod(request);
+
+        listing.update(
+                request.title().trim(),
+                normalizeList(request.imageUrls()),
+                request.address().trim(),
+                normalizeNullable(request.detailAddress()),
+                request.latitude(),
+                request.longitude(),
+                request.dailyFee(),
+                request.deposit(),
+                request.area(),
+                normalizeList(request.facilities()),
+                normalizeList(request.industryRestrictions()),
+                normalizeList(request.additionalRestrictions()),
+                request.operatingStartDate(),
+                request.operatingEndDate(),
+                request.minOperatingDays(),
+                request.maxOperatingDays(),
+                request.description().trim(),
+                normalizeList(request.hashtags())
+        );
+
+        return new UpdateListingResponse(listing.getId());
     }
 
     @Transactional(readOnly = true)
@@ -130,11 +161,7 @@ public class ListingService {
     @Transactional
     public void deleteListing(Long userId, Long listingId) {
         User landlord = getLandlord(userId);
-        Listing listing = getListing(listingId);
-
-        if (!listing.getLandlord().getId().equals(landlord.getId())) {
-            throw new BusinessException(HttpStatus.FORBIDDEN, "LISTING_DELETE_FORBIDDEN", "본인이 등록한 매물만 삭제할 수 있습니다.");
-        }
+        Listing listing = getOwnedListing(landlord, listingId, "LISTING_DELETE_FORBIDDEN", "본인이 등록한 매물만 삭제할 수 있습니다.");
 
         listingRepository.delete(listing);
     }
@@ -153,6 +180,16 @@ public class ListingService {
         }
 
         return user;
+    }
+
+    private Listing getOwnedListing(User landlord, Long listingId, String errorCode, String errorMessage) {
+        Listing listing = getListing(listingId);
+
+        if (!listing.getLandlord().getId().equals(landlord.getId())) {
+            throw new BusinessException(HttpStatus.FORBIDDEN, errorCode, errorMessage);
+        }
+
+        return listing;
     }
 
     private void validatePeriod(CreateListingRequest request) {

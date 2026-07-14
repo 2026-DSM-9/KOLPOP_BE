@@ -243,6 +243,46 @@ public class Listing {
         return createdAt;
     }
 
+    public void update(
+            String title,
+            List<String> imageUrls,
+            String address,
+            String detailAddress,
+            BigDecimal latitude,
+            BigDecimal longitude,
+            Long dailyFee,
+            Long deposit,
+            BigDecimal area,
+            List<String> facilities,
+            List<String> industryRestrictions,
+            List<String> additionalRestrictions,
+            LocalDate operatingStartDate,
+            LocalDate operatingEndDate,
+            Integer minOperatingDays,
+            Integer maxOperatingDays,
+            String description,
+            List<String> hashtags
+    ) {
+        this.title = title;
+        this.imageUrls = new ArrayList<>(imageUrls);
+        this.address = address;
+        this.detailAddress = detailAddress;
+        this.latitude = latitude;
+        this.longitude = longitude;
+        this.dailyFee = dailyFee;
+        this.deposit = deposit;
+        this.area = area;
+        this.facilities = new ArrayList<>(facilities);
+        this.industryRestrictions = new ArrayList<>(industryRestrictions);
+        this.additionalRestrictions = new ArrayList<>(additionalRestrictions);
+        this.operatingStartDate = operatingStartDate;
+        this.operatingEndDate = operatingEndDate;
+        this.minOperatingDays = minOperatingDays;
+        this.maxOperatingDays = maxOperatingDays;
+        this.description = description;
+        this.hashtags = new ArrayList<>(hashtags);
+    }
+
     public void increaseViewCount() {
         if (viewCount == null) {
             viewCount = 1L;

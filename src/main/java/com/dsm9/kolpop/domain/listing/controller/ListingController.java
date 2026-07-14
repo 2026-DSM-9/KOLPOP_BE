@@ -9,6 +9,7 @@ import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -19,6 +20,7 @@ import com.dsm9.kolpop.domain.listing.dto.CreateListingResponse;
 import com.dsm9.kolpop.domain.listing.dto.ListingDetailResponse;
 import com.dsm9.kolpop.domain.listing.dto.ListingListResponse;
 import com.dsm9.kolpop.domain.listing.dto.ListingMapResponse;
+import com.dsm9.kolpop.domain.listing.dto.UpdateListingResponse;
 import com.dsm9.kolpop.domain.listing.service.ListingService;
 import com.dsm9.kolpop.global.exception.BusinessException;
 import com.dsm9.kolpop.global.response.ApiResponse;
@@ -77,6 +79,17 @@ public class ListingController {
         CreateListingResponse response = listingService.createListing(extractUserId(authentication), request);
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ApiResponse.success(response));
+    }
+
+    @PutMapping("/{listingId}")
+    public ApiResponse<UpdateListingResponse> updateListing(
+            @PathVariable Long listingId,
+            @Valid @RequestBody CreateListingRequest request,
+            Authentication authentication
+    ) {
+        return ApiResponse.success(
+                listingService.updateListing(extractUserId(authentication), listingId, request)
+        );
     }
 
     @DeleteMapping("/{listingId}")
