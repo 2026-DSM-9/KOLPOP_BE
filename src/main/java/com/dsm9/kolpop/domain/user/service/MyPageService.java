@@ -36,8 +36,6 @@ public class MyPageService {
                 request.name().trim(),
                 normalizedEmail,
                 normalizedPhone,
-                user.getAddress(),
-                user.getDetailAddress(),
                 normalizeNullable(request.introduction())
         );
 

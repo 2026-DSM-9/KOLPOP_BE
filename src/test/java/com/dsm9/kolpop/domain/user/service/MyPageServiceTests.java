@@ -56,8 +56,7 @@ class MyPageServiceTests {
         assertEquals("Updated", response.name());
         assertEquals("new@kolpop.kr", response.email());
         assertEquals("010-9999-8888", response.phone());
-        assertEquals("Seoul", user.getAddress());
-        assertEquals("1F", user.getDetailAddress());
+        assertEquals("Updated intro", user.getIntroduction());
     }
 
     @Test
@@ -112,11 +111,9 @@ class MyPageServiceTests {
                 "landlord@kolpop.kr",
                 "encodedPassword",
                 "01012345678",
-                "Seoul",
-                "1F",
-                "Intro",
                 UserRole.LANDLORD
         );
+        user.updateProfile("Landlord", "landlord@kolpop.kr", "01012345678", "Intro");
         ReflectionTestUtils.setField(user, "id", 1L);
         return user;
     }
