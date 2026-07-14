@@ -1,15 +1,18 @@
+server:
+  port: ${SERVER_PORT}
+
 spring:
   application:
     name: kolpop
   datasource:
-    url: jdbc:mysql://localhost:3306/kolpop
-    username: root
-    password: 1234
+    url: ${SPRING_DATASOURCE_URL}
+    username: ${SPRING_DATASOURCE_USERNAME}
+    password: ${SPRING_DATASOURCE_PASSWORD}
     driver-class-name: com.mysql.cj.jdbc.Driver
   jpa:
     hibernate:
-      ddl-auto: update
-    show-sql: true
+      ddl-auto: ${SPRING_JPA_HIBERNATE_DDL_AUTO}
+    show-sql: ${SPRING_JPA_SHOW_SQL}
     properties:
       hibernate:
         format_sql: true
@@ -18,30 +21,30 @@ spring:
     baseline-version: 0
   data:
     redis:
-      host: localhost
-      port: 6379
+      host: ${SPRING_DATA_REDIS_HOST}
+      port: ${SPRING_DATA_REDIS_PORT}
 
 auth:
   jwt:
-    secret: kolpop-development-secret-key-change-this-value
-    access-token-expires-in: 3600
-    refresh-token-expires-in: 604800
+    secret: ${AUTH_JWT_SECRET}
+    access-token-expires-in: ${AUTH_JWT_ACCESS_TOKEN_EXPIRES_IN}
+    refresh-token-expires-in: ${AUTH_JWT_REFRESH_TOKEN_EXPIRES_IN}
 
 coolsms:
-  api-key: ${COOLSMS_API_KEY:}
-  api-secret: ${COOLSMS_API_SECRET:}
-  sender: ${COOLSMS_SENDER:}
+  api-key: ${COOLSMS_API_KEY}
+  api-secret: ${COOLSMS_API_SECRET}
+  sender: ${COOLSMS_SENDER}
 
 aws:
   s3:
-    region: ${AWS_REGION:ap-northeast-2}
-    bucket: ${AWS_S3_BUCKET:}
-    access-key: ${AWS_ACCESS_KEY_ID:}
-    secret-key: ${AWS_SECRET_ACCESS_KEY:}
-    endpoint: ${AWS_S3_ENDPOINT:}
-    public-base-url: ${AWS_S3_PUBLIC_BASE_URL:}
-    prefix: ${AWS_S3_PREFIX:uploads}
-    path-style-access-enabled: ${AWS_S3_PATH_STYLE_ACCESS_ENABLED:false}
+    region: ${AWS_REGION}
+    bucket: ${AWS_S3_BUCKET}
+    access-key: ${AWS_ACCESS_KEY_ID}
+    secret-key: ${AWS_SECRET_ACCESS_KEY}
+    endpoint: ${AWS_S3_ENDPOINT}
+    public-base-url: ${AWS_S3_PUBLIC_BASE_URL}
+    prefix: ${AWS_S3_PREFIX}
+    path-style-access-enabled: ${AWS_S3_PATH_STYLE_ACCESS_ENABLED}
 
 springdoc:
   swagger-ui:

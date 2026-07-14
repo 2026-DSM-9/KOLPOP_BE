@@ -1,0 +1,17 @@
+.git
+.github
+.gradle
+.gradle-home
+.idea
+build
+out
+bin
+
+HELP.md
+.DS_Store
+
+src/test
+
+*.iml
+*.ipr
+*.iws

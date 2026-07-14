@@ -1,3 +1,6 @@
+server:
+  port: 0
+
 spring:
   datasource:
     url: jdbc:h2:mem:kolpop;MODE=MySQL;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
@@ -5,7 +8,34 @@ spring:
     username: sa
     password:
   jpa:
+    show-sql: false
     hibernate:
       ddl-auto: create-drop
   flyway:
     enabled: false
+  data:
+    redis:
+      host: localhost
+      port: 6379
+
+auth:
+  jwt:
+    secret: test-jwt-secret
+    access-token-expires-in: 3600
+    refresh-token-expires-in: 604800
+
+coolsms:
+  api-key: test-api-key
+  api-secret: test-api-secret
+  sender: 01012345678
+
+aws:
+  s3:
+    region: ap-northeast-2
+    bucket: test-bucket
+    access-key: test-access-key
+    secret-key: test-secret-key
+    endpoint:
+    public-base-url: https://cdn.test.local
+    prefix: uploads
+    path-style-access-enabled: false
