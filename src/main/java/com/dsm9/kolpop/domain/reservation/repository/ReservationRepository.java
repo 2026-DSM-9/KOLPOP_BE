@@ -16,6 +16,18 @@ public interface ReservationRepository extends JpaRepository<Reservation, Long> 
 
     long countByListingId(Long listingId);
 
+    boolean existsByFounderIdAndListingLandlordIdAndStatus(
+            Long founderId,
+            Long landlordId,
+            ReservationStatus status
+    );
+
+    boolean existsByFounderIdAndListingIdAndStatus(
+            Long founderId,
+            Long listingId,
+            ReservationStatus status
+    );
+
     @Query("""
             select r.listing.id as listingId, count(r.id) as reservationCount
             from Reservation r
