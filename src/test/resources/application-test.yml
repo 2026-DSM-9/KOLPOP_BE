@@ -39,3 +39,7 @@ aws:
     public-base-url: https://cdn.test.local
     prefix: uploads
     path-style-access-enabled: false
+
+ai-server:
+  base-url: https://ai.test.local
+  api-key:
