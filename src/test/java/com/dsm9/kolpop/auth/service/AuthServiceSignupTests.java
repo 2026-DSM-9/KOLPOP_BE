@@ -3,9 +3,7 @@ package com.dsm9.kolpop.auth.service;
 import com.dsm9.kolpop.domain.auth.dto.SignupRequest;
 import com.dsm9.kolpop.domain.auth.dto.SignupResponse;
 import com.dsm9.kolpop.domain.auth.dto.SignupVerifyRequest;
-import com.dsm9.kolpop.domain.auth.dto.LoginRequest;
 import com.dsm9.kolpop.domain.auth.dto.LoginIdCheckRequest;
-import com.dsm9.kolpop.domain.auth.dto.LoginResponse;
 import com.dsm9.kolpop.domain.auth.service.AuthService;
 import com.dsm9.kolpop.global.exception.BusinessException;
 import org.junit.jupiter.api.BeforeEach;
@@ -128,34 +126,6 @@ class AuthServiceSignupTests {
         );
 
         assertEquals("LOGIN_ID_ALREADY_EXISTS", exception.getCode());
-    }
-
-    @Test
-    void landlordLoginUsesLoginId() {
-        SignupRequest request = createRequest("login");
-        authService.signupLandlord(request);
-
-        AuthService.LandlordLoginResult result = authService.loginLandlord(
-                new LoginRequest(request.loginId(), request.password())
-        );
-
-        LoginResponse response = result.response();
-        assertFalse(response.accessToken().isBlank());
-        assertFalse(result.refreshToken().isBlank());
-        assertEquals(request.name(), response.user().name());
-    }
-
-    @Test
-    void phoneCannotBeUsedForLoginAnymore() {
-        SignupRequest request = createRequest("phone_login");
-        authService.signupLandlord(request);
-
-        BusinessException exception = assertThrows(
-                BusinessException.class,
-                () -> authService.loginLandlord(new LoginRequest(request.phone(), request.password()))
-        );
-
-        assertEquals("INVALID_LOGIN", exception.getCode());
     }
 
     private SignupRequest createRequest(String prefix) {
