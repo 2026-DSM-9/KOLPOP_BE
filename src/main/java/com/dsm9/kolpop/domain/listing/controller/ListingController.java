@@ -27,10 +27,14 @@ import com.dsm9.kolpop.domain.listing.service.ListingService;
 import com.dsm9.kolpop.global.exception.BusinessException;
 import com.dsm9.kolpop.global.response.ApiResponse;
 
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 
 @RestController
 @RequestMapping("/listings")
+@Tag(name = "매물", description = "매물 등록, 조회, 수정, 삭제 API")
 public class ListingController {
 
     private final ListingService listingService;
@@ -40,6 +44,7 @@ public class ListingController {
     }
 
     @GetMapping("/map")
+    @Operation(summary = "지도용 매물 조회")
     public ApiResponse<ListingMapResponse> getListingsForMap(
             @RequestParam BigDecimal minLatitude,
             @RequestParam BigDecimal maxLatitude,
@@ -52,6 +57,7 @@ public class ListingController {
     }
 
     @GetMapping
+    @Operation(summary = "매물 목록 조회")
     public ApiResponse<ListingListResponse> getListings(
             @RequestParam(required = false) BigDecimal minLatitude,
             @RequestParam(required = false) BigDecimal maxLatitude,
@@ -64,16 +70,21 @@ public class ListingController {
     }
 
     @GetMapping("/my")
+    @Operation(summary = "내 매물 조회")
+    @SecurityRequirement(name = "bearerAuth")
     public ApiResponse<ListingListResponse> getMyListings(Authentication authentication) {
         return ApiResponse.success(listingService.getMyListings(extractUserId(authentication)));
     }
 
     @GetMapping("/{listingId}")
+    @Operation(summary = "매물 상세 조회")
     public ApiResponse<ListingDetailResponse> getListingDetail(@PathVariable Long listingId) {
         return ApiResponse.success(listingService.getListingDetail(listingId));
     }
 
     @PostMapping
+    @Operation(summary = "매물 등록")
+    @SecurityRequirement(name = "bearerAuth")
     public ResponseEntity<ApiResponse<CreateListingResponse>> createListing(
             @Valid @RequestBody CreateListingRequest request,
             Authentication authentication
@@ -84,6 +95,8 @@ public class ListingController {
     }
 
     @PutMapping("/{listingId}")
+    @Operation(summary = "매물 수정")
+    @SecurityRequirement(name = "bearerAuth")
     public ApiResponse<UpdateListingResponse> updateListing(
             @PathVariable Long listingId,
             @Valid @RequestBody CreateListingRequest request,
@@ -95,6 +108,8 @@ public class ListingController {
     }
 
     @PatchMapping("/{listingId}/close")
+    @Operation(summary = "매물 모집 종료")
+    @SecurityRequirement(name = "bearerAuth")
     public ApiResponse<CloseListingResponse> closeListing(
             @PathVariable Long listingId,
             Authentication authentication
@@ -105,6 +120,8 @@ public class ListingController {
     }
 
     @DeleteMapping("/{listingId}")
+    @Operation(summary = "매물 삭제")
+    @SecurityRequirement(name = "bearerAuth")
     public ApiResponse<Void> deleteListing(
             @PathVariable Long listingId,
             Authentication authentication

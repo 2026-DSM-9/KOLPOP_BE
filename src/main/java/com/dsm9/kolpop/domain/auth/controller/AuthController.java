@@ -11,6 +11,9 @@ import com.dsm9.kolpop.domain.auth.dto.SignupResponse;
 import com.dsm9.kolpop.domain.auth.dto.SignupVerifyRequest;
 import com.dsm9.kolpop.domain.auth.service.AuthService;
 import com.dsm9.kolpop.global.response.ApiResponse;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpHeaders;
@@ -26,46 +29,54 @@ import org.springframework.web.bind.annotation.RestController;
 @RequiredArgsConstructor
 @RestController
 @RequestMapping("/auth")
+@Tag(name = "인증", description = "회원가입, 로그인, 토큰 재발급 관련 API")
 public class AuthController {
 
     private final AuthService authService;
 
     @PostMapping("/check-id")
+    @Operation(summary = "아이디 중복 확인")
     public ApiResponse<Void> checkLoginId(@Valid @RequestBody LoginIdCheckRequest request) {
         authService.checkLoginId(request);
         return ApiResponse.success(null);
     }
 
     @PostMapping("/verify")
+    @Operation(summary = "회원가입 인증번호 확인")
     public ApiResponse<Void> verifySignup(@Valid @RequestBody SignupVerifyRequest request) {
         authService.verifySignup(request);
         return ApiResponse.success(null);
     }
 
     @PostMapping("/send")
+    @Operation(summary = "회원가입 인증번호 발송")
     public ApiResponse<Void> sendSignupCode(@Valid @RequestBody SignupCodeSendRequest request) {
         authService.sendSignupCode(request);
         return ApiResponse.success(null);
     }
 
     @PostMapping("/landlord/signup")
+    @Operation(summary = "임대인 회원가입")
     public ResponseEntity<ApiResponse<SignupResponse>> signupLandlord(@Valid @RequestBody SignupRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ApiResponse.success(authService.signupLandlord(request)));
     }
 
     @PostMapping("/entrepreneur/signup")
+    @Operation(summary = "창업자 회원가입")
     public ResponseEntity<ApiResponse<SignupResponse>> signupFounder(@Valid @RequestBody SignupRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ApiResponse.success(authService.signupFounder(request)));
     }
 
     @PostMapping("/entrepreneur/login")
+    @Operation(summary = "창업자 로그인")
     public ApiResponse<FounderLoginResponse> loginFounder(@Valid @RequestBody LoginRequest request) {
         return ApiResponse.success(authService.loginFounder(request));
     }
 
     @PostMapping("/landlord/login")
+    @Operation(summary = "임대인 로그인")
     public ResponseEntity<ApiResponse<LoginResponse>> loginLandlord(@Valid @RequestBody LoginRequest request) {
         AuthService.LandlordLoginResult loginResult = authService.loginLandlord(request);
         ResponseCookie refreshTokenCookie = createRefreshTokenCookie(loginResult.refreshToken());
@@ -76,11 +87,15 @@ public class AuthController {
     }
 
     @PostMapping("/reissue")
+    @Operation(summary = "액세스 토큰 재발급")
+    @SecurityRequirement(name = "bearerAuth")
     public ApiResponse<ReissueResponse> reissue(@RequestHeader(HttpHeaders.AUTHORIZATION) String authorizationHeader) {
         return ApiResponse.success(authService.reissue(authorizationHeader));
     }
 
     @PostMapping("/logout")
+    @Operation(summary = "로그아웃")
+    @SecurityRequirement(name = "bearerAuth")
     public ApiResponse<Void> logout(@RequestHeader(HttpHeaders.AUTHORIZATION) String authorizationHeader) {
         authService.logout(authorizationHeader);
         return ApiResponse.success(null);

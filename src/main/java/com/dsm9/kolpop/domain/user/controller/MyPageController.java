@@ -5,6 +5,9 @@ import com.dsm9.kolpop.domain.user.dto.UpdateMyPageRequest;
 import com.dsm9.kolpop.domain.user.service.MyPageService;
 import com.dsm9.kolpop.global.exception.BusinessException;
 import com.dsm9.kolpop.global.response.ApiResponse;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.Authentication;
@@ -16,6 +19,8 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/mypage")
+@Tag(name = "마이페이지", description = "내 정보 조회 및 수정 API")
+@SecurityRequirement(name = "bearerAuth")
 public class MyPageController {
 
     private final MyPageService myPageService;
@@ -25,11 +30,13 @@ public class MyPageController {
     }
 
     @GetMapping
+    @Operation(summary = "내 정보 조회")
     public ApiResponse<MyPageResponse> getMyPage(Authentication authentication) {
         return ApiResponse.success(myPageService.getMyPage(extractUserId(authentication)));
     }
 
     @PutMapping
+    @Operation(summary = "내 정보 수정")
     public ApiResponse<MyPageResponse> updateMyPage(
             Authentication authentication,
             @Valid @RequestBody UpdateMyPageRequest request
