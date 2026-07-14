@@ -10,6 +10,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.dsm9.kolpop.domain.auth.repository.UserRepository;
+import com.dsm9.kolpop.domain.listing.dto.CloseListingResponse;
 import com.dsm9.kolpop.domain.listing.dto.CreateListingRequest;
 import com.dsm9.kolpop.domain.listing.dto.CreateListingResponse;
 import com.dsm9.kolpop.domain.listing.dto.ListingDetailResponse;
@@ -20,6 +21,7 @@ import com.dsm9.kolpop.domain.listing.dto.ListingStatusResponse;
 import com.dsm9.kolpop.domain.listing.dto.ListingSummaryResponse;
 import com.dsm9.kolpop.domain.listing.dto.UpdateListingResponse;
 import com.dsm9.kolpop.domain.listing.entity.Listing;
+import com.dsm9.kolpop.domain.listing.entity.ListingStatus;
 import com.dsm9.kolpop.domain.listing.repository.ListingRepository;
 import com.dsm9.kolpop.domain.user.entity.User;
 import com.dsm9.kolpop.domain.user.entity.UserRole;
@@ -28,7 +30,6 @@ import com.dsm9.kolpop.global.exception.BusinessException;
 @Service
 public class ListingService {
 
-    private static final ListingStatusResponse RECRUITING_STATUS = new ListingStatusResponse("RECRUITING", "모집중");
     private static final int DEFAULT_RESERVATION_COUNT = 0;
 
     private final ListingRepository listingRepository;
@@ -111,7 +112,8 @@ public class ListingService {
         validateBounds(minLatitude, maxLatitude, minLongitude, maxLongitude);
 
         List<ListingMapItemResponse> listings = listingRepository
-                .findAllByLatitudeBetweenAndLongitudeBetweenOrderByCreatedAtDesc(
+                .findAllByStatusAndLatitudeBetweenAndLongitudeBetweenOrderByCreatedAtDesc(
+                        ListingStatus.RECRUITING,
                         minLatitude,
                         maxLatitude,
                         minLongitude,
@@ -156,6 +158,16 @@ public class ListingService {
         listing.increaseViewCount();
 
         return toDetailResponse(listing);
+    }
+
+    @Transactional
+    public CloseListingResponse closeListing(Long userId, Long listingId) {
+        User landlord = getLandlord(userId);
+        Listing listing = getOwnedListing(landlord, listingId, "LISTING_CLOSE_FORBIDDEN", "본인이 등록한 매물만 모집 종료할 수 있습니다.");
+
+        listing.closeRecruitment();
+
+        return new CloseListingResponse(listing.getId(), toStatusResponse(listing));
     }
 
     @Transactional
@@ -225,7 +237,7 @@ public class ListingService {
                 && maxLongitude == null;
 
         if (hasNoBounds) {
-            return listingRepository.findAllByOrderByCreatedAtDesc();
+            return listingRepository.findAllByStatusOrderByCreatedAtDesc(ListingStatus.RECRUITING);
         }
 
         if (minLatitude == null || maxLatitude == null || minLongitude == null || maxLongitude == null) {
@@ -233,7 +245,8 @@ public class ListingService {
         }
 
         validateBounds(minLatitude, maxLatitude, minLongitude, maxLongitude);
-        return listingRepository.findAllByLatitudeBetweenAndLongitudeBetweenOrderByCreatedAtDesc(
+        return listingRepository.findAllByStatusAndLatitudeBetweenAndLongitudeBetweenOrderByCreatedAtDesc(
+                ListingStatus.RECRUITING,
                 minLatitude,
                 maxLatitude,
                 minLongitude,
@@ -250,7 +263,7 @@ public class ListingService {
                 listing.getLongitude(),
                 listing.getDeposit(),
                 listing.getDailyFee(),
-                RECRUITING_STATUS
+                toStatusResponse(listing)
         );
     }
 
@@ -265,7 +278,7 @@ public class ListingService {
                 listing.getArea(),
                 listing.getViewCount(),
                 DEFAULT_RESERVATION_COUNT,
-                RECRUITING_STATUS
+                toStatusResponse(listing)
         );
     }
 
@@ -294,8 +307,12 @@ public class ListingService {
                 listing.getHashtags(),
                 listing.getLatitude(),
                 listing.getLongitude(),
-                RECRUITING_STATUS
+                toStatusResponse(listing)
         );
+    }
+
+    private ListingStatusResponse toStatusResponse(Listing listing) {
+        return new ListingStatusResponse(listing.getStatus().getCode(), listing.getStatus().getLabel());
     }
 
     private List<String> normalizeList(List<String> values) {

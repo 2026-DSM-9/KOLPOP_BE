@@ -12,6 +12,8 @@ import jakarta.persistence.CollectionTable;
 import jakarta.persistence.Column;
 import jakarta.persistence.ElementCollection;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
@@ -96,6 +98,10 @@ public class Listing {
     @Column(nullable = false, length = 500)
     private String description;
 
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 20)
+    private ListingStatus status = ListingStatus.RECRUITING;
+
     @ElementCollection
     @CollectionTable(name = "listing_hashtags", joinColumns = @JoinColumn(name = "listing_id"))
     @OrderColumn(name = "hashtag_order")
@@ -151,6 +157,7 @@ public class Listing {
         this.minOperatingDays = minOperatingDays;
         this.maxOperatingDays = maxOperatingDays;
         this.description = description;
+        this.status = ListingStatus.RECRUITING;
         this.hashtags = new ArrayList<>(hashtags);
         this.createdAt = createdAt;
     }
@@ -231,6 +238,10 @@ public class Listing {
         return description;
     }
 
+    public ListingStatus getStatus() {
+        return status;
+    }
+
     public List<String> getHashtags() {
         return hashtags;
     }
@@ -281,6 +292,14 @@ public class Listing {
         this.maxOperatingDays = maxOperatingDays;
         this.description = description;
         this.hashtags = new ArrayList<>(hashtags);
+    }
+
+    public void closeRecruitment() {
+        this.status = ListingStatus.CLOSED;
+    }
+
+    public boolean isRecruiting() {
+        return status == ListingStatus.RECRUITING;
     }
 
     public void increaseViewCount() {

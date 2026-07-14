@@ -18,11 +18,13 @@ import org.junit.jupiter.api.Test;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import com.dsm9.kolpop.domain.auth.repository.UserRepository;
+import com.dsm9.kolpop.domain.listing.dto.CloseListingResponse;
 import com.dsm9.kolpop.domain.listing.dto.CreateListingRequest;
 import com.dsm9.kolpop.domain.listing.dto.CreateListingResponse;
 import com.dsm9.kolpop.domain.listing.dto.ListingDetailResponse;
 import com.dsm9.kolpop.domain.listing.dto.ListingListResponse;
 import com.dsm9.kolpop.domain.listing.dto.ListingMapResponse;
+import com.dsm9.kolpop.domain.listing.entity.ListingStatus;
 import com.dsm9.kolpop.domain.listing.dto.UpdateListingResponse;
 import com.dsm9.kolpop.domain.listing.entity.Listing;
 import com.dsm9.kolpop.domain.listing.repository.ListingRepository;
@@ -110,6 +112,46 @@ class ListingServiceTests {
     }
 
     @Test
+    void ownerCanCloseListing() {
+        ListingRepository listingRepository = mock(ListingRepository.class);
+        UserRepository userRepository = mock(UserRepository.class);
+        ListingService listingService = new ListingService(listingRepository, userRepository);
+        User landlord = createUser(1L, UserRole.LANDLORD);
+        Listing listing = createListing(landlord);
+        ReflectionTestUtils.setField(listing, "id", 13L);
+
+        when(userRepository.findById(1L)).thenReturn(Optional.of(landlord));
+        when(listingRepository.findById(13L)).thenReturn(Optional.of(listing));
+
+        CloseListingResponse response = listingService.closeListing(1L, 13L);
+
+        assertEquals(13L, response.listingId());
+        assertEquals(ListingStatus.CLOSED, listing.getStatus());
+        assertEquals("모집종료", response.status().label());
+    }
+
+    @Test
+    void otherLandlordCannotCloseListing() {
+        ListingRepository listingRepository = mock(ListingRepository.class);
+        UserRepository userRepository = mock(UserRepository.class);
+        ListingService listingService = new ListingService(listingRepository, userRepository);
+        User owner = createUser(1L, UserRole.LANDLORD);
+        User anotherLandlord = createUser(2L, UserRole.LANDLORD);
+        Listing listing = createListing(owner);
+        ReflectionTestUtils.setField(listing, "id", 14L);
+
+        when(userRepository.findById(2L)).thenReturn(Optional.of(anotherLandlord));
+        when(listingRepository.findById(14L)).thenReturn(Optional.of(listing));
+
+        BusinessException exception = assertThrows(
+                BusinessException.class,
+                () -> listingService.closeListing(2L, 14L)
+        );
+
+        assertEquals("LISTING_CLOSE_FORBIDDEN", exception.getCode());
+    }
+
+    @Test
     void ownerCanDeleteListing() {
         ListingRepository listingRepository = mock(ListingRepository.class);
         UserRepository userRepository = mock(UserRepository.class);
@@ -192,7 +234,8 @@ class ListingServiceTests {
         Listing listing = createListing(createUser(1L, UserRole.LANDLORD));
         ReflectionTestUtils.setField(listing, "id", 30L);
 
-        when(listingRepository.findAllByLatitudeBetweenAndLongitudeBetweenOrderByCreatedAtDesc(
+        when(listingRepository.findAllByStatusAndLatitudeBetweenAndLongitudeBetweenOrderByCreatedAtDesc(
+                ListingStatus.RECRUITING,
                 new BigDecimal("37.5000"),
                 new BigDecimal("37.6000"),
                 new BigDecimal("126.9000"),
@@ -219,7 +262,7 @@ class ListingServiceTests {
         Listing listing = createListing(createUser(1L, UserRole.LANDLORD));
         ReflectionTestUtils.setField(listing, "id", 31L);
 
-        when(listingRepository.findAllByOrderByCreatedAtDesc()).thenReturn(List.of(listing));
+        when(listingRepository.findAllByStatusOrderByCreatedAtDesc(ListingStatus.RECRUITING)).thenReturn(List.of(listing));
 
         ListingListResponse response = listingService.getListings(null, null, null, null);
 
