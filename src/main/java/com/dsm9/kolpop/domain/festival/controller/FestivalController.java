@@ -10,7 +10,6 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-import com.dsm9.kolpop.domain.festival.dto.FestivalCalendarResponse;
 import com.dsm9.kolpop.domain.festival.dto.FestivalDetailResponse;
 import com.dsm9.kolpop.domain.festival.dto.FestivalListResponse;
 import com.dsm9.kolpop.domain.festival.dto.FestivalSummaryResponse;
@@ -50,15 +49,6 @@ public class FestivalController {
             @RequestParam(required = false) Integer limit
     ) {
         return ApiResponse.success(festivalService.getUpcomingFestivals(limit));
-    }
-
-    @GetMapping("/calendar")
-    @Operation(summary = "지역 축제 월간 캘린더 조회")
-    public ApiResponse<FestivalCalendarResponse> getCalendar(
-            @RequestParam int year,
-            @RequestParam int month
-    ) {
-        return ApiResponse.success(festivalService.getCalendar(year, month));
     }
 
     @GetMapping("/{festivalId}")
