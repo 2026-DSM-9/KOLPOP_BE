@@ -1,0 +1,102 @@
+package com.dsm9.kolpop.domain.listing.controller;
+
+import java.math.BigDecimal;
+
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
+
+import com.dsm9.kolpop.domain.listing.dto.CreateListingRequest;
+import com.dsm9.kolpop.domain.listing.dto.CreateListingResponse;
+import com.dsm9.kolpop.domain.listing.dto.ListingDetailResponse;
+import com.dsm9.kolpop.domain.listing.dto.ListingListResponse;
+import com.dsm9.kolpop.domain.listing.dto.ListingMapResponse;
+import com.dsm9.kolpop.domain.listing.service.ListingService;
+import com.dsm9.kolpop.global.exception.BusinessException;
+import com.dsm9.kolpop.global.response.ApiResponse;
+
+import jakarta.validation.Valid;
+
+@RestController
+@RequestMapping("/listings")
+public class ListingController {
+
+    private final ListingService listingService;
+
+    public ListingController(ListingService listingService) {
+        this.listingService = listingService;
+    }
+
+    @GetMapping("/map")
+    public ApiResponse<ListingMapResponse> getListingsForMap(
+            @RequestParam BigDecimal minLatitude,
+            @RequestParam BigDecimal maxLatitude,
+            @RequestParam BigDecimal minLongitude,
+            @RequestParam BigDecimal maxLongitude
+    ) {
+        return ApiResponse.success(
+                listingService.getListingsForMap(minLatitude, maxLatitude, minLongitude, maxLongitude)
+        );
+    }
+
+    @GetMapping
+    public ApiResponse<ListingListResponse> getListings(
+            @RequestParam(required = false) BigDecimal minLatitude,
+            @RequestParam(required = false) BigDecimal maxLatitude,
+            @RequestParam(required = false) BigDecimal minLongitude,
+            @RequestParam(required = false) BigDecimal maxLongitude
+    ) {
+        return ApiResponse.success(
+                listingService.getListings(minLatitude, maxLatitude, minLongitude, maxLongitude)
+        );
+    }
+
+    @GetMapping("/my")
+    public ApiResponse<ListingListResponse> getMyListings(Authentication authentication) {
+        return ApiResponse.success(listingService.getMyListings(extractUserId(authentication)));
+    }
+
+    @GetMapping("/{listingId}")
+    public ApiResponse<ListingDetailResponse> getListingDetail(@PathVariable Long listingId) {
+        return ApiResponse.success(listingService.getListingDetail(listingId));
+    }
+
+    @PostMapping
+    public ResponseEntity<ApiResponse<CreateListingResponse>> createListing(
+            @Valid @RequestBody CreateListingRequest request,
+            Authentication authentication
+    ) {
+        CreateListingResponse response = listingService.createListing(extractUserId(authentication), request);
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(ApiResponse.success(response));
+    }
+
+    @DeleteMapping("/{listingId}")
+    public ApiResponse<Void> deleteListing(
+            @PathVariable Long listingId,
+            Authentication authentication
+    ) {
+        listingService.deleteListing(extractUserId(authentication), listingId);
+        return ApiResponse.success(null);
+    }
+
+    private Long extractUserId(Authentication authentication) {
+        if (authentication == null || authentication.getName() == null) {
+            throw new BusinessException(HttpStatus.UNAUTHORIZED, "AUTHENTICATION_REQUIRED", "인증이 필요합니다.");
+        }
+
+        try {
+            return Long.valueOf(authentication.getName());
+        } catch (NumberFormatException exception) {
+            throw new BusinessException(HttpStatus.UNAUTHORIZED, "INVALID_AUTHENTICATION", "인증 정보가 올바르지 않습니다.");
+        }
+    }
+}
