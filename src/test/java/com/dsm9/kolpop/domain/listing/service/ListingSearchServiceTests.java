@@ -40,6 +40,7 @@ class ListingSearchServiceTests {
 
         assertEquals(1, response.count());
         assertEquals(10L, response.listings().getFirst().listingId());
+        assertEquals("https://cdn.example.com/listing.jpg", response.listings().getFirst().thumbnailUrl());
         assertEquals(new BigDecimal("36.3500000"), response.listings().getFirst().latitude());
         verify(listingRepository).findAllByStatusAndKeywordOrderByCreatedAtDesc(ListingStatus.RECRUITING, "Daejeon");
     }

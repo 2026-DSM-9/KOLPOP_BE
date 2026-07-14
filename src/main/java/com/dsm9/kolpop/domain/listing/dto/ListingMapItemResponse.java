@@ -6,6 +6,7 @@ public record ListingMapItemResponse(
         Long listingId,
         Long landlordId,
         String title,
+        String thumbnailUrl,
         String address,
         BigDecimal latitude,
         BigDecimal longitude,

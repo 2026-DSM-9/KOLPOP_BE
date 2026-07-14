@@ -486,6 +486,7 @@ public class ListingService {
                 listing.getId(),
                 listing.getLandlord().getId(),
                 listing.getTitle(),
+                getThumbnailUrl(listing),
                 buildFullAddress(listing),
                 listing.getLatitude(),
                 listing.getLongitude(),
