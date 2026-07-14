@@ -1,6 +1,6 @@
 package com.dsm9.kolpop.global.config;
 
-import com.dsm9.kolpop.auth.jwt.JwtAuthenticationFilter;
+import com.dsm9.kolpop.domain.auth.jwt.JwtAuthenticationFilter;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;

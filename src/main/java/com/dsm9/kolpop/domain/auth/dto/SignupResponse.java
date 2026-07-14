@@ -1,4 +1,4 @@
-package com.dsm9.kolpop.auth.dto;
+package com.dsm9.kolpop.domain.auth.dto;
 
 public record SignupResponse(
         String accessToken,

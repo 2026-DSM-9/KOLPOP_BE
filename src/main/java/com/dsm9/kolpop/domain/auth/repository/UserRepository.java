@@ -1,6 +1,6 @@
-package com.dsm9.kolpop.auth.repository;
+package com.dsm9.kolpop.domain.auth.repository;
 
-import com.dsm9.kolpop.user.domain.User;
+import com.dsm9.kolpop.domain.user.entity.User;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.Optional;

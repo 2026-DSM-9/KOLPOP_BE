@@ -1,4 +1,4 @@
-package com.dsm9.kolpop.auth.dto;
+package com.dsm9.kolpop.domain.auth.dto;
 
 import jakarta.annotation.Nullable;
 import jakarta.validation.constraints.Email;

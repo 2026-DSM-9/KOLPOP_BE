@@ -1,4 +1,4 @@
-package com.dsm9.kolpop.auth.jwt;
+package com.dsm9.kolpop.domain.auth.jwt;
 
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
