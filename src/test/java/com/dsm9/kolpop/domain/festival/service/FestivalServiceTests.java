@@ -7,6 +7,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -16,6 +17,7 @@ import org.springframework.test.util.ReflectionTestUtils;
 import com.dsm9.kolpop.domain.festival.client.PublicFestivalClient;
 import com.dsm9.kolpop.domain.festival.dto.FestivalDetailResponse;
 import com.dsm9.kolpop.domain.festival.dto.FestivalListResponse;
+import com.dsm9.kolpop.domain.festival.dto.FestivalSummaryResponse;
 import com.dsm9.kolpop.domain.festival.dto.PublicFestivalItem;
 import com.dsm9.kolpop.domain.listing.entity.Listing;
 import com.dsm9.kolpop.domain.listing.entity.ListingStatus;
@@ -76,6 +78,31 @@ class FestivalServiceTests {
         assertEquals(10L, response.nearbyListings().getFirst().listingId());
     }
 
+    @Test
+    void festivalDateQueryReturnsFestivalsContainingSelectedDate() {
+        PublicFestivalClient publicFestivalClient = mock(PublicFestivalClient.class);
+        ListingRepository listingRepository = mock(ListingRepository.class);
+        ListingLikeRepository listingLikeRepository = mock(ListingLikeRepository.class);
+        FestivalService festivalService = new FestivalService(publicFestivalClient, listingRepository, listingLikeRepository);
+
+        when(publicFestivalClient.fetchAll()).thenReturn(List.of(
+                createFestival(),
+                createOtherFestival()
+        ));
+        when(listingRepository.findAllByStatusAndLatitudeBetweenAndLongitudeBetweenOrderByCreatedAtDesc(
+                eq(ListingStatus.RECRUITING),
+                any(BigDecimal.class),
+                any(BigDecimal.class),
+                any(BigDecimal.class),
+                any(BigDecimal.class)
+        )).thenReturn(List.of());
+
+        List<FestivalSummaryResponse> response = festivalService.getFestivalsByDate(LocalDate.of(2026, 7, 25));
+
+        assertEquals(1, response.size());
+        assertEquals("Boryeong Mud Festival", response.getFirst().name());
+    }
+
     private PublicFestivalItem createFestival() {
         return new PublicFestivalItem(
                 "Boryeong Mud Festival",
@@ -93,6 +120,27 @@ class FestivalServiceTests {
                 null,
                 "36.3050000",
                 "126.5130000",
+                "2026-07-14"
+        );
+    }
+
+    private PublicFestivalItem createOtherFestival() {
+        return new PublicFestivalItem(
+                "Winter Festival",
+                "Snow Park",
+                "2026-12-24",
+                "2026-12-25",
+                "Winter content",
+                "Agency",
+                "Host",
+                "Sponsor",
+                "041-111-1111",
+                "winter.example.com",
+                "Related info",
+                "Gangwon Snow Park",
+                null,
+                "37.3050000",
+                "128.5130000",
                 "2026-07-14"
         );
     }

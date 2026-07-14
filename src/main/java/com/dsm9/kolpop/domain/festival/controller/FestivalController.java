@@ -51,6 +51,14 @@ public class FestivalController {
         return ApiResponse.success(festivalService.getUpcomingFestivals(limit));
     }
 
+    @GetMapping("/date")
+    @Operation(summary = "날짜별 지역 축제 조회")
+    public ApiResponse<List<FestivalSummaryResponse>> getFestivalsByDate(
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date
+    ) {
+        return ApiResponse.success(festivalService.getFestivalsByDate(date));
+    }
+
     @GetMapping("/{festivalId}")
     @Operation(summary = "지역 축제 상세 조회")
     public ApiResponse<FestivalDetailResponse> getFestivalDetail(@PathVariable String festivalId) {
