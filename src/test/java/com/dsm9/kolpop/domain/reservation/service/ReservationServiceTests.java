@@ -104,13 +104,13 @@ class ReservationServiceTests {
                 LocalDateTime.of(2026, 7, 8, 9, 30),
                 ReservationStatus.APPROVED
         );
-        ChatRoom chatRoom = new ChatRoom(founder2, landlord);
+        ChatRoom chatRoom = new ChatRoom(founder2, landlord, listing);
         ReflectionTestUtils.setField(chatRoom, "id", 999L);
 
         when(userRepository.findById(1L)).thenReturn(Optional.of(landlord));
         when(reservationRepository.findAllByListingLandlordIdOrderByAppliedAtDesc(1L))
                 .thenReturn(List.of(pendingReservation, approvedReservation));
-        when(chatRoomRepository.findAllByLandlordIdAndFounderIdIn(1L, List.of(3L)))
+        when(chatRoomRepository.findAllByLandlordIdAndListingIdIn(1L, List.of(10L)))
                 .thenReturn(List.of(chatRoom));
 
         ReservationManagementResponse response = reservationService.getManagementReservations(1L);
@@ -153,7 +153,7 @@ class ReservationServiceTests {
 
         when(userRepository.findById(1L)).thenReturn(Optional.of(landlord));
         when(reservationRepository.findById(300L)).thenReturn(Optional.of(reservation));
-        when(chatRoomRepository.findByFounderIdAndLandlordId(2L, 1L)).thenReturn(Optional.empty());
+        when(chatRoomRepository.findByFounderIdAndLandlordIdAndListingId(2L, 1L, 10L)).thenReturn(Optional.empty());
         when(chatRoomRepository.save(any(ChatRoom.class))).thenAnswer(invocation -> {
             ChatRoom room = invocation.getArgument(0);
             ReflectionTestUtils.setField(room, "id", 500L);

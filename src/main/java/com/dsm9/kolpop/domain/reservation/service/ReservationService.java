@@ -80,7 +80,7 @@ public class ReservationService {
     public ReservationManagementResponse getManagementReservations(Long userId) {
         User landlord = getLandlord(userId);
         List<Reservation> reservations = reservationRepository.findAllByListingLandlordIdOrderByAppliedAtDesc(landlord.getId());
-        Map<Long, Long> chatRoomIdsByFounderId = getChatRoomIdsByFounderId(landlord.getId(), reservations);
+        Map<ChatRoomKey, Long> chatRoomIds = getChatRoomIds(landlord.getId(), reservations);
 
         long pendingCount = reservations.stream().filter(Reservation::isPending).count();
         long approvedCount = reservations.stream().filter(Reservation::isApproved).count();
@@ -88,7 +88,7 @@ public class ReservationService {
         List<ReservationManagementItemResponse> items = reservations.stream()
                 .map(reservation -> toManagementItemResponse(
                         reservation,
-                        chatRoomIdsByFounderId.get(reservation.getFounder().getId())
+                        chatRoomIds.get(ChatRoomKey.from(reservation))
                 ))
                 .toList();
 
@@ -115,11 +115,15 @@ public class ReservationService {
         );
 
         reservation.approve(LocalDateTime.now());
-        ChatRoom chatRoom = chatRoomRepository.findByFounderIdAndLandlordId(
+        ChatRoom chatRoom = chatRoomRepository.findByFounderIdAndLandlordIdAndListingId(
                         reservation.getFounder().getId(),
-                        landlord.getId()
+                        landlord.getId(),
+                        reservation.getListing().getId()
                 )
-                .orElseGet(() -> chatRoomRepository.save(new ChatRoom(reservation.getFounder(), landlord)));
+                .orElseGet(() -> chatRoomRepository.save(new ChatRoom(
+                        reservation.getFounder(), landlord, reservation.getListing()
+                )));
+        chatRoom.accept(LocalDateTime.now());
 
         return new ReservationDecisionResponse(
                 reservation.getId(),
@@ -167,20 +171,31 @@ public class ReservationService {
         );
     }
 
-    private Map<Long, Long> getChatRoomIdsByFounderId(Long landlordId, List<Reservation> reservations) {
-        List<Long> founderIds = reservations.stream()
+    private Map<ChatRoomKey, Long> getChatRoomIds(Long landlordId, List<Reservation> reservations) {
+        List<Long> listingIds = reservations.stream()
                 .filter(Reservation::isApproved)
-                .map(reservation -> reservation.getFounder().getId())
+                .map(reservation -> reservation.getListing().getId())
                 .distinct()
                 .toList();
 
-        if (founderIds.isEmpty()) {
+        if (listingIds.isEmpty()) {
             return Collections.emptyMap();
         }
 
-        return chatRoomRepository.findAllByLandlordIdAndFounderIdIn(landlordId, founderIds)
+        return chatRoomRepository.findAllByLandlordIdAndListingIdIn(landlordId, listingIds)
                 .stream()
-                .collect(Collectors.toMap(room -> room.getFounder().getId(), ChatRoom::getId));
+                .collect(Collectors.toMap(ChatRoomKey::from, ChatRoom::getId));
+    }
+
+    private record ChatRoomKey(Long founderId, Long listingId) {
+
+        private static ChatRoomKey from(Reservation reservation) {
+            return new ChatRoomKey(reservation.getFounder().getId(), reservation.getListing().getId());
+        }
+
+        private static ChatRoomKey from(ChatRoom room) {
+            return new ChatRoomKey(room.getFounder().getId(), room.getListing().getId());
+        }
     }
 
     private void validatePendingReservation(Reservation reservation) {

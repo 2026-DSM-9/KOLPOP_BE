@@ -1,8 +1,11 @@
 package com.dsm9.kolpop.domain.chat.entity;
 
 import com.dsm9.kolpop.domain.user.entity.User;
+import com.dsm9.kolpop.domain.listing.entity.Listing;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
@@ -18,8 +21,8 @@ import java.time.LocalDateTime;
 @Table(
         name = "chat_rooms",
         uniqueConstraints = @UniqueConstraint(
-                name = "uk_chat_rooms_founder_landlord",
-                columnNames = {"founder_id", "landlord_id"}
+                name = "uk_chat_rooms_founder_landlord_listing",
+                columnNames = {"founder_id", "landlord_id", "listing_id"}
         )
 )
 public class ChatRoom {
@@ -36,16 +39,28 @@ public class ChatRoom {
     @JoinColumn(name = "landlord_id", nullable = false)
     private User landlord;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "listing_id")
+    private Listing listing;
+
     @Column(nullable = false)
     private LocalDateTime createdAt;
+
+    @Enumerated(EnumType.STRING)
+    @Column(length = 20)
+    private ChatRoomStatus status;
+
+    private LocalDateTime acceptedAt;
 
     protected ChatRoom() {
     }
 
-    public ChatRoom(User founder, User landlord) {
+    public ChatRoom(User founder, User landlord, Listing listing) {
         this.founder = founder;
         this.landlord = landlord;
+        this.listing = listing;
         this.createdAt = LocalDateTime.now();
+        this.status = ChatRoomStatus.PENDING;
     }
 
     public Long getId() {
@@ -60,8 +75,33 @@ public class ChatRoom {
         return landlord;
     }
 
+    public Listing getListing() {
+        return listing;
+    }
+
     public LocalDateTime getCreatedAt() {
         return createdAt;
+    }
+
+    public ChatRoomStatus getStatus() {
+        return status == null ? ChatRoomStatus.ACCEPTED : status;
+    }
+
+    public LocalDateTime getAcceptedAt() {
+        return acceptedAt;
+    }
+
+    public boolean isPending() {
+        return getStatus() == ChatRoomStatus.PENDING;
+    }
+
+    public boolean isAccepted() {
+        return getStatus() == ChatRoomStatus.ACCEPTED;
+    }
+
+    public void accept(LocalDateTime acceptedAt) {
+        this.status = ChatRoomStatus.ACCEPTED;
+        this.acceptedAt = acceptedAt;
     }
 
     public boolean hasParticipant(Long userId) {
