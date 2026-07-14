@@ -1,5 +1,9 @@
 package com.dsm9.kolpop.domain.ai.service;
 
+import java.time.LocalDateTime;
+import java.util.List;
+
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -7,6 +11,12 @@ import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
 
 import com.dsm9.kolpop.domain.ai.config.AiServerProperties;
+import com.dsm9.kolpop.domain.ai.dto.AiConversationDetailResponse;
+import com.dsm9.kolpop.domain.ai.dto.AiConversationSummaryResponse;
+import com.dsm9.kolpop.domain.ai.entity.AiConversation;
+import com.dsm9.kolpop.domain.ai.repository.AiConversationRepository;
+import com.dsm9.kolpop.domain.auth.repository.UserRepository;
+import com.dsm9.kolpop.domain.user.entity.User;
 import com.dsm9.kolpop.global.exception.BusinessException;
 
 import tools.jackson.databind.JsonNode;
@@ -23,10 +33,24 @@ public class AiPartnerProxyService {
 
     private final RestClient restClient;
     private final AiServerProperties aiServerProperties;
+    private final AiConversationRepository aiConversationRepository;
+    private final UserRepository userRepository;
 
-    public AiPartnerProxyService(RestClient.Builder restClientBuilder, AiServerProperties aiServerProperties) {
+    @Autowired
+    public AiPartnerProxyService(
+            RestClient.Builder restClientBuilder,
+            AiServerProperties aiServerProperties,
+            AiConversationRepository aiConversationRepository,
+            UserRepository userRepository
+    ) {
         this.restClient = restClientBuilder.build();
         this.aiServerProperties = aiServerProperties;
+        this.aiConversationRepository = aiConversationRepository;
+        this.userRepository = userRepository;
+    }
+
+    public AiPartnerProxyService(RestClient.Builder restClientBuilder, AiServerProperties aiServerProperties) {
+        this(restClientBuilder, aiServerProperties, null, null);
     }
 
     public JsonNode health() {
@@ -35,6 +59,30 @@ public class AiPartnerProxyService {
 
     public JsonNode chatListings(JsonNode request) {
         return post(CHAT_LISTINGS_PATH, request);
+    }
+
+    public JsonNode chatListings(Long userId, JsonNode request) {
+        JsonNode response = post(CHAT_LISTINGS_PATH, request);
+        saveConversation(userId, request, response);
+        return response;
+    }
+
+    public List<AiConversationSummaryResponse> getConversations(Long userId) {
+        return aiConversationRepository.findAllByUserIdOrderByCreatedAtDesc(userId)
+                .stream()
+                .map(AiConversationSummaryResponse::from)
+                .toList();
+    }
+
+    public AiConversationDetailResponse getConversation(Long userId, Long conversationId) {
+        AiConversation conversation = aiConversationRepository.findByIdAndUserId(conversationId, userId)
+                .orElseThrow(() -> new BusinessException(
+                        HttpStatus.NOT_FOUND,
+                        "AI_CONVERSATION_NOT_FOUND",
+                        "AI conversation history could not be found."
+                ));
+
+        return AiConversationDetailResponse.from(conversation);
     }
 
     public JsonNode recommendListings(JsonNode request) {
@@ -112,5 +160,65 @@ public class AiPartnerProxyService {
 
     private boolean isBlank(String value) {
         return value == null || value.isBlank();
+    }
+
+    private void saveConversation(Long userId, JsonNode request, JsonNode response) {
+        if (aiConversationRepository == null || userRepository == null) {
+            return;
+        }
+
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new BusinessException(
+                        HttpStatus.UNAUTHORIZED,
+                        "USER_NOT_FOUND",
+                        "User could not be found."
+                ));
+        String userMessage = extractText(request, "message", "input", "query", "content");
+        String aiMessage = extractText(response, "answer", "message", "content", "response");
+        String title = createTitle(userMessage);
+
+        aiConversationRepository.save(new AiConversation(
+                user,
+                title,
+                truncate(userMessage, 1000),
+                truncate(aiMessage, 4000),
+                request.toString(),
+                response.toString(),
+                LocalDateTime.now()
+        ));
+    }
+
+    private String extractText(JsonNode node, String... fieldNames) {
+        if (node == null) {
+            return "";
+        }
+
+        for (String fieldName : fieldNames) {
+            JsonNode value = node.get(fieldName);
+            if (value != null && !value.isNull()) {
+                String text = value.asText();
+                if (!isBlank(text)) {
+                    return text.trim();
+                }
+            }
+        }
+        return node.toString();
+    }
+
+    private String createTitle(String userMessage) {
+        if (isBlank(userMessage)) {
+            return "AI 대화";
+        }
+        return truncate(userMessage.trim(), 40);
+    }
+
+    private String truncate(String value, int maxLength) {
+        if (value == null) {
+            return "";
+        }
+        if (value.length() <= maxLength) {
+            return value;
+        }
+        return value.substring(0, maxLength);
     }
 }
