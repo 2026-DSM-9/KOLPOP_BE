@@ -22,6 +22,7 @@ import com.dsm9.kolpop.domain.listing.dto.CreateListingResponse;
 import com.dsm9.kolpop.domain.listing.dto.CloseListingResponse;
 import com.dsm9.kolpop.domain.listing.dto.LikeListingResponse;
 import com.dsm9.kolpop.domain.listing.dto.ListingAddressSuggestionResponse;
+import com.dsm9.kolpop.domain.listing.dto.ListingDiscoveryResponse;
 import com.dsm9.kolpop.domain.listing.dto.ListingDetailResponse;
 import com.dsm9.kolpop.domain.listing.dto.ListingListResponse;
 import com.dsm9.kolpop.domain.listing.dto.ListingMapResponse;
@@ -81,6 +82,21 @@ public class ListingController {
     ) {
         return ApiResponse.success(
                 listingService.getListings(minLatitude, maxLatitude, minLongitude, maxLongitude, keyword, sort)
+        );
+    }
+
+    @GetMapping("/discovery")
+    @Operation(summary = "지도 + 주변 매물 통합 조회")
+    public ApiResponse<ListingDiscoveryResponse> getListingsForDiscovery(
+            @RequestParam(required = false) BigDecimal minLatitude,
+            @RequestParam(required = false) BigDecimal maxLatitude,
+            @RequestParam(required = false) BigDecimal minLongitude,
+            @RequestParam(required = false) BigDecimal maxLongitude,
+            @RequestParam(required = false) String keyword,
+            @RequestParam(required = false) String sort
+    ) {
+        return ApiResponse.success(
+                listingService.getListingsForDiscovery(minLatitude, maxLatitude, minLongitude, maxLongitude, keyword, sort)
         );
     }
 

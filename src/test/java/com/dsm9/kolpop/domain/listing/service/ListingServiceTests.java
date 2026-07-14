@@ -21,6 +21,7 @@ import com.dsm9.kolpop.domain.auth.repository.UserRepository;
 import com.dsm9.kolpop.domain.listing.dto.CloseListingResponse;
 import com.dsm9.kolpop.domain.listing.dto.CreateListingRequest;
 import com.dsm9.kolpop.domain.listing.dto.CreateListingResponse;
+import com.dsm9.kolpop.domain.listing.dto.ListingDiscoveryResponse;
 import com.dsm9.kolpop.domain.listing.dto.ListingDetailResponse;
 import com.dsm9.kolpop.domain.listing.dto.ListingListResponse;
 import com.dsm9.kolpop.domain.listing.dto.ListingMapResponse;
@@ -303,6 +304,37 @@ class ListingServiceTests {
         assertEquals(1, response.count());
         assertEquals(31L, response.listings().getFirst().listingId());
         assertEquals("https://cdn.example.com/listings/1.jpg", response.listings().getFirst().thumbnailUrl());
+    }
+
+    @Test
+    void discoveryQueryReturnsMapAndNearbyListingsTogether() {
+        ListingRepository listingRepository = mock(ListingRepository.class);
+        UserRepository userRepository = mock(UserRepository.class);
+        ListingService listingService = new ListingService(listingRepository, userRepository);
+        Listing listing = createListing(createUser(1L, UserRole.LANDLORD));
+        ReflectionTestUtils.setField(listing, "id", 34L);
+
+        when(listingRepository.findAllByStatusAndLatitudeBetweenAndLongitudeBetweenOrderByCreatedAtDesc(
+                ListingStatus.RECRUITING,
+                new BigDecimal("37.5000"),
+                new BigDecimal("37.6000"),
+                new BigDecimal("126.9000"),
+                new BigDecimal("127.0000")
+        )).thenReturn(List.of(listing));
+
+        ListingDiscoveryResponse response = listingService.getListingsForDiscovery(
+                new BigDecimal("37.5000"),
+                new BigDecimal("37.6000"),
+                new BigDecimal("126.9000"),
+                new BigDecimal("127.0000"),
+                null,
+                null
+        );
+
+        assertEquals(1, response.map().count());
+        assertEquals(1, response.nearbyListings().count());
+        assertEquals(34L, response.map().listings().getFirst().listingId());
+        assertEquals("https://cdn.example.com/listings/1.jpg", response.nearbyListings().listings().getFirst().thumbnailUrl());
     }
 
     @Test

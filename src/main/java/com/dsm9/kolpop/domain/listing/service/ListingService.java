@@ -20,6 +20,7 @@ import com.dsm9.kolpop.domain.listing.dto.CreateListingRequest;
 import com.dsm9.kolpop.domain.listing.dto.CreateListingResponse;
 import com.dsm9.kolpop.domain.listing.dto.LikeListingResponse;
 import com.dsm9.kolpop.domain.listing.dto.ListingAddressSuggestionResponse;
+import com.dsm9.kolpop.domain.listing.dto.ListingDiscoveryResponse;
 import com.dsm9.kolpop.domain.listing.dto.ListingDetailResponse;
 import com.dsm9.kolpop.domain.listing.dto.ListingListResponse;
 import com.dsm9.kolpop.domain.listing.dto.ListingMapItemResponse;
@@ -149,12 +150,7 @@ public class ListingService {
             String keyword
     ) {
         List<Listing> foundListings = findMapListings(minLatitude, maxLatitude, minLongitude, maxLongitude, keyword);
-
-        List<ListingMapItemResponse> listings = foundListings.stream()
-                .map(this::toMapItemResponse)
-                .toList();
-
-        return new ListingMapResponse(listings.size(), listings);
+        return toMapResponse(foundListings);
     }
 
     @Transactional(readOnly = true)
@@ -207,12 +203,7 @@ public class ListingService {
     ) {
         List<Listing> foundListings = findListings(minLatitude, maxLatitude, minLongitude, maxLongitude, keyword, sort);
         Map<Long, Long> likeCounts = getLikeCounts(foundListings);
-
-        List<ListingSummaryResponse> listings = foundListings.stream()
-                .map(listing -> toSummaryResponse(listing, likeCounts.getOrDefault(listing.getId(), 0L)))
-                .toList();
-
-        return new ListingListResponse(listings.size(), listings);
+        return toListResponse(foundListings, likeCounts);
     }
 
     @Transactional(readOnly = true)
@@ -230,12 +221,25 @@ public class ListingService {
         User landlord = getLandlord(userId);
         List<Listing> ownedListings = listingRepository.findAllByLandlordIdOrderByCreatedAtDesc(landlord.getId());
         Map<Long, Long> likeCounts = getLikeCounts(ownedListings);
+        return toListResponse(ownedListings, likeCounts);
+    }
 
-        List<ListingSummaryResponse> listings = ownedListings.stream()
-                .map(listing -> toSummaryResponse(listing, likeCounts.getOrDefault(listing.getId(), 0L)))
-                .toList();
+    @Transactional(readOnly = true)
+    public ListingDiscoveryResponse getListingsForDiscovery(
+            BigDecimal minLatitude,
+            BigDecimal maxLatitude,
+            BigDecimal minLongitude,
+            BigDecimal maxLongitude,
+            String keyword,
+            String sort
+    ) {
+        List<Listing> foundListings = findListings(minLatitude, maxLatitude, minLongitude, maxLongitude, keyword, sort);
+        Map<Long, Long> likeCounts = getLikeCounts(foundListings);
 
-        return new ListingListResponse(listings.size(), listings);
+        return new ListingDiscoveryResponse(
+                toMapResponse(foundListings),
+                toListResponse(foundListings, likeCounts)
+        );
     }
 
     @Transactional
@@ -461,6 +465,22 @@ public class ListingService {
                 listing.getDailyFee(),
                 toStatusResponse(listing)
         );
+    }
+
+    private ListingMapResponse toMapResponse(List<Listing> foundListings) {
+        List<ListingMapItemResponse> listings = foundListings.stream()
+                .map(this::toMapItemResponse)
+                .toList();
+
+        return new ListingMapResponse(listings.size(), listings);
+    }
+
+    private ListingListResponse toListResponse(List<Listing> foundListings, Map<Long, Long> likeCounts) {
+        List<ListingSummaryResponse> listings = foundListings.stream()
+                .map(listing -> toSummaryResponse(listing, likeCounts.getOrDefault(listing.getId(), 0L)))
+                .toList();
+
+        return new ListingListResponse(listings.size(), listings);
     }
 
     private ListingSummaryResponse toSummaryResponse(Listing listing, Long likeCount) {
