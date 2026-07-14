@@ -369,6 +369,7 @@ class ListingServiceTests {
         ListingDetailResponse response = listingService.getListingDetail(33L);
 
         assertEquals(1L, response.viewCount());
+        assertEquals(1L, response.landlordId());
         assertEquals("사용자1", response.landlordName());
         assertFalse(response.imageUrls().isEmpty());
     }

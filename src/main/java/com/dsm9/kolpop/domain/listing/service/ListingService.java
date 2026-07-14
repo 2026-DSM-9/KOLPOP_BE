@@ -548,6 +548,7 @@ public class ListingService {
                 listing.getDeposit(),
                 listing.getArea(),
                 listing.getDailyFee() * 7,
+                listing.getLandlord().getId(),
                 listing.getLandlord().getName(),
                 likeCount,
                 listing.getViewCount(),

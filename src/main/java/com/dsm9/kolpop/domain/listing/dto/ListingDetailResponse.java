@@ -14,6 +14,7 @@ public record ListingDetailResponse(
         Long deposit,
         BigDecimal area,
         Long sevenDayTotalFee,
+        Long landlordId,
         String landlordName,
         Long likeCount,
         Long viewCount,
