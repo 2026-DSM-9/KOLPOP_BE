@@ -107,6 +107,13 @@ public class ListingController {
         return ApiResponse.success(listingService.getMyListings(extractUserId(authentication)));
     }
 
+    @GetMapping("/liked")
+    @Operation(summary = "찜한 매물 조회")
+    @SecurityRequirement(name = "bearerAuth")
+    public ApiResponse<ListingListResponse> getLikedListings(Authentication authentication) {
+        return ApiResponse.success(listingService.getLikedListings(extractUserId(authentication)));
+    }
+
     @GetMapping("/{listingId}")
     @Operation(summary = "매물 상세 조회")
     public ApiResponse<ListingDetailResponse> getListingDetail(@PathVariable Long listingId) {

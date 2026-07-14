@@ -16,6 +16,8 @@ public interface ListingLikeRepository extends JpaRepository<ListingLike, Long> 
 
     Optional<ListingLike> findByListingIdAndUserId(Long listingId, Long userId);
 
+    List<ListingLike> findAllByUserIdOrderByCreatedAtDesc(Long userId);
+
     long countByListingId(Long listingId);
 
     @Query("""

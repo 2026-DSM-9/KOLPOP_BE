@@ -225,6 +225,18 @@ public class ListingService {
     }
 
     @Transactional(readOnly = true)
+    public ListingListResponse getLikedListings(Long userId) {
+        User user = getUser(userId);
+        List<Listing> likedListings = listingLikeRepository.findAllByUserIdOrderByCreatedAtDesc(user.getId())
+                .stream()
+                .map(ListingLike::getListing)
+                .toList();
+        Map<Long, Long> likeCounts = getLikeCounts(likedListings);
+
+        return toListResponse(likedListings, likeCounts);
+    }
+
+    @Transactional(readOnly = true)
     public ListingDiscoveryResponse getListingsForDiscovery(
             BigDecimal minLatitude,
             BigDecimal maxLatitude,

@@ -72,6 +72,27 @@ class ListingLikeServiceTests {
         verify(listingLikeRepository).save(any(ListingLike.class));
     }
 
+    @Test
+    void likedListingsQueryReturnsUsersLikedListings() {
+        ListingRepository listingRepository = mock(ListingRepository.class);
+        ListingLikeRepository listingLikeRepository = mock(ListingLikeRepository.class);
+        UserRepository userRepository = mock(UserRepository.class);
+        ListingService listingService = new ListingService(listingRepository, listingLikeRepository, userRepository);
+        User user = createUser(3L, UserRole.FOUNDER);
+        Listing listing = createListing(10L, createUser(1L, UserRole.LANDLORD));
+        ListingLike listingLike = new ListingLike(listing, user, LocalDateTime.of(2026, 7, 14, 10, 0));
+
+        when(userRepository.findById(3L)).thenReturn(Optional.of(user));
+        when(listingLikeRepository.findAllByUserIdOrderByCreatedAtDesc(3L)).thenReturn(List.of(listingLike));
+        when(listingLikeRepository.countByListingIds(List.of(10L))).thenReturn(List.of(likeCount(10L, 4L)));
+
+        ListingListResponse response = listingService.getLikedListings(3L);
+
+        assertEquals(1, response.count());
+        assertEquals(10L, response.listings().getFirst().listingId());
+        assertEquals(4L, response.listings().getFirst().likeCount());
+    }
+
     private ListingLikeCount likeCount(Long listingId, Long likeCount) {
         return new ListingLikeCount() {
             @Override
