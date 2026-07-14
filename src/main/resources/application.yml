@@ -31,3 +31,14 @@ coolsms:
   api-key: ${COOLSMS_API_KEY:}
   api-secret: ${COOLSMS_API_SECRET:}
   sender: ${COOLSMS_SENDER:}
+
+aws:
+  s3:
+    region: ${AWS_REGION:ap-northeast-2}
+    bucket: ${AWS_S3_BUCKET:}
+    access-key: ${AWS_ACCESS_KEY_ID:}
+    secret-key: ${AWS_SECRET_ACCESS_KEY:}
+    endpoint: ${AWS_S3_ENDPOINT:}
+    public-base-url: ${AWS_S3_PUBLIC_BASE_URL:}
+    prefix: ${AWS_S3_PREFIX:uploads}
+    path-style-access-enabled: ${AWS_S3_PATH_STYLE_ACCESS_ENABLED:false}
