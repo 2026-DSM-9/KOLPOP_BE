@@ -21,8 +21,6 @@ import com.dsm9.kolpop.domain.chat.repository.ChatMessageRepository;
 import com.dsm9.kolpop.domain.chat.repository.ChatRoomRepository;
 import com.dsm9.kolpop.domain.listing.entity.Listing;
 import com.dsm9.kolpop.domain.listing.repository.ListingRepository;
-import com.dsm9.kolpop.domain.reservation.entity.ReservationStatus;
-import com.dsm9.kolpop.domain.reservation.repository.ReservationRepository;
 import com.dsm9.kolpop.domain.user.entity.User;
 import com.dsm9.kolpop.domain.user.entity.UserRole;
 import com.dsm9.kolpop.global.exception.BusinessException;
@@ -37,7 +35,6 @@ public class ChatService {
     private final ChatMessageRepository chatMessageRepository;
     private final UserRepository userRepository;
     private final ListingRepository listingRepository;
-    private final ReservationRepository reservationRepository;
 
     @Transactional
     public ChatRoomResponse createRoom(CreateChatRoomRequest request, Authentication authentication) {
@@ -71,7 +68,6 @@ public class ChatService {
         User user = getAuthenticatedUser(authentication);
         return chatRoomRepository.findAllByFounderIdOrLandlordIdOrderByCreatedAtDesc(user.getId(), user.getId())
                 .stream()
-                .filter(ChatRoom::isAccepted)
                 .map(ChatRoomResponse::from)
                 .toList();
     }
@@ -112,7 +108,6 @@ public class ChatService {
     public List<ChatMessageResponse> getMessages(Long roomId, Authentication authentication) {
         User user = getAuthenticatedUser(authentication);
         ChatRoom room = getRoomForParticipant(roomId, user.getId());
-        validateAcceptedRoom(room);
         return chatMessageRepository.findAllByRoomIdOrderByCreatedAtAsc(room.getId())
                 .stream()
                 .map(ChatMessageResponse::from)
@@ -131,33 +126,6 @@ public class ChatService {
         validateAcceptedRoom(room);
         ChatMessage message = chatMessageRepository.save(new ChatMessage(room, sender, request.content()));
         return ChatMessageResponse.from(message);
-    }
-
-    private ChatRoom createAcceptedRoomAfterReservationApproval(
-            User founder,
-            User landlord,
-            Listing listing,
-            String content
-    ) {
-        boolean approvedReservationExists = reservationRepository.existsByFounderIdAndListingIdAndStatus(
-                founder.getId(),
-                listing.getId(),
-                ReservationStatus.APPROVED
-        );
-
-        if (!approvedReservationExists) {
-            throw new BusinessException(
-                    HttpStatus.FORBIDDEN,
-                    "RESERVATION_APPROVAL_REQUIRED",
-                    "임대인 승인 후 채팅을 시작할 수 있습니다."
-            );
-        }
-
-        ChatRoom room = new ChatRoom(founder, landlord, listing);
-        room.accept(LocalDateTime.now());
-        ChatRoom savedRoom = chatRoomRepository.save(room);
-        chatMessageRepository.save(new ChatMessage(savedRoom, founder, content.trim()));
-        return savedRoom;
     }
 
     private ChatRoomRequestResponse toRoomRequestResponse(ChatRoom room) {

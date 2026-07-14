@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -105,6 +106,7 @@ class ReservationServiceTests {
                 ReservationStatus.APPROVED
         );
         ChatRoom chatRoom = new ChatRoom(founder2, landlord, listing);
+        chatRoom.accept(LocalDateTime.of(2026, 7, 9, 12, 0));
         ReflectionTestUtils.setField(chatRoom, "id", 999L);
 
         when(userRepository.findById(1L)).thenReturn(Optional.of(landlord));
@@ -125,7 +127,48 @@ class ReservationServiceTests {
     }
 
     @Test
-    void landlordCanApproveReservationAndCreateChatRoom() {
+    void approvedReservationWithPendingChatRoomCannotChatFromReservationManagement() {
+        ReservationRepository reservationRepository = mock(ReservationRepository.class);
+        ListingRepository listingRepository = mock(ListingRepository.class);
+        UserRepository userRepository = mock(UserRepository.class);
+        ChatRoomRepository chatRoomRepository = mock(ChatRoomRepository.class);
+        ReservationService reservationService = new ReservationService(
+                reservationRepository,
+                listingRepository,
+                userRepository,
+                chatRoomRepository
+        );
+
+        User landlord = createUser(1L, UserRole.LANDLORD, "김임대");
+        User founder = createUser(2L, UserRole.FOUNDER, "박창업");
+        Listing listing = createListing(10L, landlord, "홍대입구역 1번 출구 앞 1층 점포");
+        Reservation approvedReservation = createReservation(
+                201L,
+                listing,
+                founder,
+                LocalDate.of(2026, 9, 1),
+                LocalDate.of(2026, 9, 7),
+                "뷰티 브랜드 런칭 팝업을 기획 중입니다.",
+                LocalDateTime.of(2026, 7, 8, 9, 30),
+                ReservationStatus.APPROVED
+        );
+        ChatRoom pendingChatRoom = new ChatRoom(founder, landlord, listing);
+        ReflectionTestUtils.setField(pendingChatRoom, "id", 999L);
+
+        when(userRepository.findById(1L)).thenReturn(Optional.of(landlord));
+        when(reservationRepository.findAllByListingLandlordIdOrderByAppliedAtDesc(1L))
+                .thenReturn(List.of(approvedReservation));
+        when(chatRoomRepository.findAllByLandlordIdAndListingIdIn(1L, List.of(10L)))
+                .thenReturn(List.of(pendingChatRoom));
+
+        ReservationManagementResponse response = reservationService.getManagementReservations(1L);
+
+        assertNull(response.reservations().getFirst().chatRoomId());
+        assertEquals(false, response.reservations().getFirst().canChat());
+    }
+
+    @Test
+    void landlordCanApproveReservationWithoutAutoCreatingChatRoom() {
         ReservationRepository reservationRepository = mock(ReservationRepository.class);
         ListingRepository listingRepository = mock(ListingRepository.class);
         UserRepository userRepository = mock(UserRepository.class);
@@ -154,19 +197,54 @@ class ReservationServiceTests {
         when(userRepository.findById(1L)).thenReturn(Optional.of(landlord));
         when(reservationRepository.findById(300L)).thenReturn(Optional.of(reservation));
         when(chatRoomRepository.findByFounderIdAndListingId(2L, 10L)).thenReturn(Optional.empty());
-        when(chatRoomRepository.save(any(ChatRoom.class))).thenAnswer(invocation -> {
-            ChatRoom room = invocation.getArgument(0);
-            ReflectionTestUtils.setField(room, "id", 500L);
-            return room;
-        });
 
         ReservationDecisionResponse response = reservationService.approveReservation(1L, 300L);
 
         assertEquals("APPROVED", response.status().code());
         assertEquals("승인 완료", response.status().label());
-        assertEquals(500L, response.chatRoomId());
+        assertNull(response.chatRoomId());
         assertEquals(ReservationStatus.APPROVED, reservation.getStatus());
-        verify(chatRoomRepository).save(any(ChatRoom.class));
+        verify(chatRoomRepository, never()).save(any(ChatRoom.class));
+    }
+
+    @Test
+    void landlordCanApproveReservationAndReuseAcceptedChatRoom() {
+        ReservationRepository reservationRepository = mock(ReservationRepository.class);
+        ListingRepository listingRepository = mock(ListingRepository.class);
+        UserRepository userRepository = mock(UserRepository.class);
+        ChatRoomRepository chatRoomRepository = mock(ChatRoomRepository.class);
+        ReservationService reservationService = new ReservationService(
+                reservationRepository,
+                listingRepository,
+                userRepository,
+                chatRoomRepository
+        );
+
+        User landlord = createUser(1L, UserRole.LANDLORD, "김임대");
+        User founder = createUser(2L, UserRole.FOUNDER, "박창업");
+        Listing listing = createListing(10L, landlord, "홍대입구역 1번 출구 앞 1층 점포");
+        Reservation reservation = createReservation(
+                301L,
+                listing,
+                founder,
+                LocalDate.of(2026, 8, 20),
+                LocalDate.of(2026, 8, 27),
+                "패션 브랜드 팝업스토어를 운영하고 싶습니다.",
+                LocalDateTime.of(2026, 7, 11, 10, 0),
+                ReservationStatus.PENDING
+        );
+        ChatRoom acceptedRoom = new ChatRoom(founder, landlord, listing);
+        acceptedRoom.accept(LocalDateTime.of(2026, 7, 12, 9, 0));
+        ReflectionTestUtils.setField(acceptedRoom, "id", 501L);
+
+        when(userRepository.findById(1L)).thenReturn(Optional.of(landlord));
+        when(reservationRepository.findById(301L)).thenReturn(Optional.of(reservation));
+        when(chatRoomRepository.findByFounderIdAndListingId(2L, 10L)).thenReturn(Optional.of(acceptedRoom));
+
+        ReservationDecisionResponse response = reservationService.approveReservation(1L, 301L);
+
+        assertEquals("APPROVED", response.status().code());
+        assertEquals(501L, response.chatRoomId());
     }
 
     @Test
