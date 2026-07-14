@@ -245,8 +245,9 @@ public class ListingService {
                 .map(ListingLike::getListing)
                 .toList();
         Map<Long, Long> likeCounts = getLikeCounts(likedListings);
+        Map<Long, Long> reservationCounts = getReservationCounts(likedListings);
 
-        return toListResponse(likedListings, likeCounts);
+        return toListResponse(likedListings, likeCounts, reservationCounts);
     }
 
     @Transactional(readOnly = true)
