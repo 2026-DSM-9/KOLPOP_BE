@@ -104,6 +104,20 @@ public class FestivalService {
                 .toList();
     }
 
+    public List<FestivalSummaryResponse> getFestivalsByDate(LocalDate date) {
+        if (date == null) {
+            throw new BusinessException(HttpStatus.BAD_REQUEST, "FESTIVAL_DATE_REQUIRED", "조회할 날짜를 입력해주세요.");
+        }
+
+        return publicFestivalClient.fetchAll()
+                .stream()
+                .filter(this::hasRequiredFields)
+                .filter(item -> containsDate(item, date))
+                .sorted(Comparator.comparing(this::parseStartDate).thenComparing(this::normalizeName))
+                .map(this::toSummaryResponse)
+                .toList();
+    }
+
     public FestivalDetailResponse getFestivalDetail(String festivalId) {
         return publicFestivalClient.fetchAll()
                 .stream()
@@ -214,6 +228,10 @@ public class FestivalService {
         }
 
         return !endDate.isBefore(queryStart) && !startDate.isAfter(queryEnd);
+    }
+
+    private boolean containsDate(PublicFestivalItem item, LocalDate date) {
+        return !date.isBefore(parseStartDate(item)) && !date.isAfter(parseEndDate(item));
     }
 
     private List<Listing> getNearbyListings(PublicFestivalItem item) {
