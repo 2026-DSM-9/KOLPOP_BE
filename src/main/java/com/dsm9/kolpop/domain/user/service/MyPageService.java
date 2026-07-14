@@ -36,8 +36,8 @@ public class MyPageService {
                 request.name().trim(),
                 normalizedEmail,
                 normalizedPhone,
-                normalizeNullable(request.address()),
-                normalizeNullable(request.detailAddress()),
+                user.getAddress(),
+                user.getDetailAddress(),
                 normalizeNullable(request.introduction())
         );
 
@@ -66,8 +66,6 @@ public class MyPageService {
                 user.getName(),
                 nullToEmpty(user.getEmail()),
                 formatPhone(user.getPhone()),
-                nullToEmpty(user.getAddress()),
-                nullToEmpty(user.getDetailAddress()),
                 nullToEmpty(user.getIntroduction()),
                 user.getRole().name()
         );

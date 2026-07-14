@@ -15,12 +15,6 @@ public record UpdateMyPageRequest(
         @Size(max = 20)
         String phone,
 
-        @Size(max = 255)
-        String address,
-
-        @Size(max = 255)
-        String detailAddress,
-
         @Size(max = 500)
         String introduction
 ) {
