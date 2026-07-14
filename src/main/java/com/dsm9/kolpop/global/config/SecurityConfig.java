@@ -26,6 +26,8 @@ public class SecurityConfig {
                 .csrf(AbstractHttpConfigurer::disable)
                 .authorizeHttpRequests(authorize -> authorize
                         .requestMatchers("/auth/logout", "/auth/reset", "/files/**").authenticated()
+                        .requestMatchers(HttpMethod.GET, "/mypage").authenticated()
+                        .requestMatchers(HttpMethod.PUT, "/mypage").authenticated()
                         .requestMatchers(HttpMethod.POST, "/listings").authenticated()
                         .requestMatchers(HttpMethod.PUT, "/listings/**").authenticated()
                         .requestMatchers(HttpMethod.PATCH, "/listings/**").authenticated()

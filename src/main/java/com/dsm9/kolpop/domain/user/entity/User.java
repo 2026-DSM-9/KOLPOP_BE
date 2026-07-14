@@ -32,6 +32,15 @@ public class User {
     @Column(nullable = false, unique = true, length = 20)
     private String phone;
 
+    @Column(length = 255)
+    private String address;
+
+    @Column(name = "detail_address", length = 255)
+    private String detailAddress;
+
+    @Column(length = 500)
+    private String introduction;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
     private UserRole role;
@@ -40,11 +49,28 @@ public class User {
     }
 
     public User(String loginId, String name, String email, String password, String phone, UserRole role) {
+        this(loginId, name, email, password, phone, null, null, null, role);
+    }
+
+    public User(
+            String loginId,
+            String name,
+            String email,
+            String password,
+            String phone,
+            String address,
+            String detailAddress,
+            String introduction,
+            UserRole role
+    ) {
         this.loginId = loginId;
         this.name = name;
         this.email = email;
         this.password = password;
         this.phone = phone;
+        this.address = address;
+        this.detailAddress = detailAddress;
+        this.introduction = introduction;
         this.role = role;
     }
 
@@ -72,7 +98,35 @@ public class User {
         return phone;
     }
 
+    public String getAddress() {
+        return address;
+    }
+
+    public String getDetailAddress() {
+        return detailAddress;
+    }
+
+    public String getIntroduction() {
+        return introduction;
+    }
+
     public UserRole getRole() {
         return role;
+    }
+
+    public void updateProfile(
+            String name,
+            String email,
+            String phone,
+            String address,
+            String detailAddress,
+            String introduction
+    ) {
+        this.name = name;
+        this.email = email;
+        this.phone = phone;
+        this.address = address;
+        this.detailAddress = detailAddress;
+        this.introduction = introduction;
     }
 }
