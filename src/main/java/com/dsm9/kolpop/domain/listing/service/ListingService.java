@@ -34,6 +34,8 @@ import com.dsm9.kolpop.domain.listing.entity.ListingStatus;
 import com.dsm9.kolpop.domain.listing.repository.ListingLikeCount;
 import com.dsm9.kolpop.domain.listing.repository.ListingLikeRepository;
 import com.dsm9.kolpop.domain.listing.repository.ListingRepository;
+import com.dsm9.kolpop.domain.reservation.repository.ListingReservationCount;
+import com.dsm9.kolpop.domain.reservation.repository.ReservationRepository;
 import com.dsm9.kolpop.domain.user.entity.User;
 import com.dsm9.kolpop.domain.user.entity.UserRole;
 import com.dsm9.kolpop.global.exception.BusinessException;
@@ -49,22 +51,31 @@ public class ListingService {
     private final ListingRepository listingRepository;
     private final ListingLikeRepository listingLikeRepository;
     private final UserRepository userRepository;
+    private final ReservationRepository reservationRepository;
 
     @Autowired
     public ListingService(
             ListingRepository listingRepository,
             ListingLikeRepository listingLikeRepository,
-            UserRepository userRepository
+            UserRepository userRepository,
+            ReservationRepository reservationRepository
     ) {
         this.listingRepository = listingRepository;
         this.listingLikeRepository = listingLikeRepository;
         this.userRepository = userRepository;
+        this.reservationRepository = reservationRepository;
     }
 
     ListingService(ListingRepository listingRepository, UserRepository userRepository) {
-        this.listingRepository = listingRepository;
-        this.listingLikeRepository = null;
-        this.userRepository = userRepository;
+        this(listingRepository, null, userRepository, null);
+    }
+
+    ListingService(
+            ListingRepository listingRepository,
+            ListingLikeRepository listingLikeRepository,
+            UserRepository userRepository
+    ) {
+        this(listingRepository, listingLikeRepository, userRepository, null);
     }
 
     @Transactional
@@ -203,7 +214,8 @@ public class ListingService {
     ) {
         List<Listing> foundListings = findListings(minLatitude, maxLatitude, minLongitude, maxLongitude, keyword, sort);
         Map<Long, Long> likeCounts = getLikeCounts(foundListings);
-        return toListResponse(foundListings, likeCounts);
+        Map<Long, Long> reservationCounts = getReservationCounts(foundListings);
+        return toListResponse(foundListings, likeCounts, reservationCounts);
     }
 
     @Transactional(readOnly = true)
@@ -221,7 +233,8 @@ public class ListingService {
         User landlord = getLandlord(userId);
         List<Listing> ownedListings = listingRepository.findAllByLandlordIdOrderByCreatedAtDesc(landlord.getId());
         Map<Long, Long> likeCounts = getLikeCounts(ownedListings);
-        return toListResponse(ownedListings, likeCounts);
+        Map<Long, Long> reservationCounts = getReservationCounts(ownedListings);
+        return toListResponse(ownedListings, likeCounts, reservationCounts);
     }
 
     @Transactional(readOnly = true)
@@ -247,10 +260,11 @@ public class ListingService {
     ) {
         List<Listing> foundListings = findListings(minLatitude, maxLatitude, minLongitude, maxLongitude, keyword, sort);
         Map<Long, Long> likeCounts = getLikeCounts(foundListings);
+        Map<Long, Long> reservationCounts = getReservationCounts(foundListings);
 
         return new ListingDiscoveryResponse(
                 toMapResponse(foundListings),
-                toListResponse(foundListings, likeCounts)
+                toListResponse(foundListings, likeCounts, reservationCounts)
         );
     }
 
@@ -487,15 +501,23 @@ public class ListingService {
         return new ListingMapResponse(listings.size(), listings);
     }
 
-    private ListingListResponse toListResponse(List<Listing> foundListings, Map<Long, Long> likeCounts) {
+    private ListingListResponse toListResponse(
+            List<Listing> foundListings,
+            Map<Long, Long> likeCounts,
+            Map<Long, Long> reservationCounts
+    ) {
         List<ListingSummaryResponse> listings = foundListings.stream()
-                .map(listing -> toSummaryResponse(listing, likeCounts.getOrDefault(listing.getId(), 0L)))
+                .map(listing -> toSummaryResponse(
+                        listing,
+                        likeCounts.getOrDefault(listing.getId(), 0L),
+                        reservationCounts.getOrDefault(listing.getId(), 0L)
+                ))
                 .toList();
 
         return new ListingListResponse(listings.size(), listings);
     }
 
-    private ListingSummaryResponse toSummaryResponse(Listing listing, Long likeCount) {
+    private ListingSummaryResponse toSummaryResponse(Listing listing, Long likeCount, Long reservationCount) {
         return new ListingSummaryResponse(
                 listing.getId(),
                 listing.getTitle(),
@@ -506,13 +528,14 @@ public class ListingService {
                 listing.getArea(),
                 likeCount,
                 listing.getViewCount(),
-                DEFAULT_RESERVATION_COUNT,
+                getReservationCountValue(reservationCount),
                 toStatusResponse(listing)
         );
     }
 
     private ListingDetailResponse toDetailResponse(Listing listing) {
         Long likeCount = getLikeCount(listing.getId());
+        Long reservationCount = getReservationCount(listing.getId());
 
         return new ListingDetailResponse(
                 listing.getId(),
@@ -527,7 +550,7 @@ public class ListingService {
                 listing.getLandlord().getName(),
                 likeCount,
                 listing.getViewCount(),
-                DEFAULT_RESERVATION_COUNT,
+                getReservationCountValue(reservationCount),
                 listing.getOperatingStartDate(),
                 listing.getOperatingEndDate(),
                 listing.getMinOperatingDays(),
@@ -562,6 +585,34 @@ public class ListingService {
             return 0L;
         }
         return listingLikeRepository.countByListingId(listingId);
+    }
+
+    private Map<Long, Long> getReservationCounts(List<Listing> listings) {
+        if (reservationRepository == null || listings.isEmpty()) {
+            return Collections.emptyMap();
+        }
+
+        List<Long> listingIds = listings.stream()
+                .map(Listing::getId)
+                .toList();
+
+        return reservationRepository.countByListingIds(listingIds)
+                .stream()
+                .collect(Collectors.toMap(ListingReservationCount::getListingId, ListingReservationCount::getReservationCount));
+    }
+
+    private Long getReservationCount(Long listingId) {
+        if (reservationRepository == null) {
+            return 0L;
+        }
+        return reservationRepository.countByListingId(listingId);
+    }
+
+    private Integer getReservationCountValue(Long reservationCount) {
+        if (reservationCount == null) {
+            return DEFAULT_RESERVATION_COUNT;
+        }
+        return Math.toIntExact(reservationCount);
     }
 
     private ListingStatusResponse toStatusResponse(Listing listing) {

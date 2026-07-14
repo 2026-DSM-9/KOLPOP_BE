@@ -11,4 +11,6 @@ public interface ChatRoomRepository extends JpaRepository<ChatRoom, Long> {
     Optional<ChatRoom> findByFounderIdAndLandlordId(Long founderId, Long landlordId);
 
     List<ChatRoom> findAllByFounderIdOrLandlordIdOrderByCreatedAtDesc(Long founderId, Long landlordId);
+
+    List<ChatRoom> findAllByLandlordIdAndFounderIdIn(Long landlordId, List<Long> founderIds);
 }
