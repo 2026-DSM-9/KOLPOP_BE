@@ -286,6 +286,7 @@ class ListingServiceTests {
 
         assertEquals(1, response.count());
         assertEquals(30L, response.listings().getFirst().listingId());
+        assertEquals(1L, response.listings().getFirst().landlordId());
         assertEquals("모집중", response.listings().getFirst().status().label());
     }
 
@@ -334,6 +335,7 @@ class ListingServiceTests {
         assertEquals(1, response.map().count());
         assertEquals(1, response.nearbyListings().count());
         assertEquals(34L, response.map().listings().getFirst().listingId());
+        assertEquals(1L, response.map().listings().getFirst().landlordId());
         assertEquals("https://cdn.example.com/listings/1.jpg", response.nearbyListings().listings().getFirst().thumbnailUrl());
     }
 

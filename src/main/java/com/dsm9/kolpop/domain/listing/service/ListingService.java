@@ -484,6 +484,7 @@ public class ListingService {
     private ListingMapItemResponse toMapItemResponse(Listing listing) {
         return new ListingMapItemResponse(
                 listing.getId(),
+                listing.getLandlord().getId(),
                 listing.getTitle(),
                 buildFullAddress(listing),
                 listing.getLatitude(),

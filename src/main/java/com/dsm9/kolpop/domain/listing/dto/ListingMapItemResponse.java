@@ -4,6 +4,7 @@ import java.math.BigDecimal;
 
 public record ListingMapItemResponse(
         Long listingId,
+        Long landlordId,
         String title,
         String address,
         BigDecimal latitude,
