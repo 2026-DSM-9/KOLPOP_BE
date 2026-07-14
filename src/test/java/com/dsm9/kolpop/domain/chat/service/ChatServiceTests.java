@@ -19,6 +19,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import com.dsm9.kolpop.domain.auth.repository.UserRepository;
+import com.dsm9.kolpop.domain.chat.dto.ChatMessageResponse;
 import com.dsm9.kolpop.domain.chat.dto.ChatRoomRequestResponse;
 import com.dsm9.kolpop.domain.chat.dto.ChatRoomResponse;
 import com.dsm9.kolpop.domain.chat.dto.CreateChatRoomRequest;
@@ -29,7 +30,6 @@ import com.dsm9.kolpop.domain.chat.repository.ChatMessageRepository;
 import com.dsm9.kolpop.domain.chat.repository.ChatRoomRepository;
 import com.dsm9.kolpop.domain.listing.entity.Listing;
 import com.dsm9.kolpop.domain.listing.repository.ListingRepository;
-import com.dsm9.kolpop.domain.reservation.repository.ReservationRepository;
 import com.dsm9.kolpop.domain.user.entity.User;
 import com.dsm9.kolpop.domain.user.entity.UserRole;
 import com.dsm9.kolpop.global.exception.BusinessException;
@@ -42,13 +42,11 @@ class ChatServiceTests {
         ChatMessageRepository chatMessageRepository = mock(ChatMessageRepository.class);
         UserRepository userRepository = mock(UserRepository.class);
         ListingRepository listingRepository = mock(ListingRepository.class);
-        ReservationRepository reservationRepository = mock(ReservationRepository.class);
         ChatService chatService = new ChatService(
                 chatRoomRepository,
                 chatMessageRepository,
                 userRepository,
-                listingRepository,
-                reservationRepository
+                listingRepository
         );
         User founder = createUser(1L, UserRole.FOUNDER, "박창업");
         User landlord = createUser(2L, UserRole.LANDLORD, "김임대");
@@ -80,13 +78,11 @@ class ChatServiceTests {
         ChatMessageRepository chatMessageRepository = mock(ChatMessageRepository.class);
         UserRepository userRepository = mock(UserRepository.class);
         ListingRepository listingRepository = mock(ListingRepository.class);
-        ReservationRepository reservationRepository = mock(ReservationRepository.class);
         ChatService chatService = new ChatService(
                 chatRoomRepository,
                 chatMessageRepository,
                 userRepository,
-                listingRepository,
-                reservationRepository
+                listingRepository
         );
         User founder = createUser(2L, UserRole.FOUNDER, "박창업");
 
@@ -106,13 +102,11 @@ class ChatServiceTests {
         ChatMessageRepository chatMessageRepository = mock(ChatMessageRepository.class);
         UserRepository userRepository = mock(UserRepository.class);
         ListingRepository listingRepository = mock(ListingRepository.class);
-        ReservationRepository reservationRepository = mock(ReservationRepository.class);
         ChatService chatService = new ChatService(
                 chatRoomRepository,
                 chatMessageRepository,
                 userRepository,
-                listingRepository,
-                reservationRepository
+                listingRepository
         );
         User founder = createUser(2L, UserRole.FOUNDER, "박창업");
         User landlord = createUser(1L, UserRole.LANDLORD, "김임대");
@@ -133,18 +127,69 @@ class ChatServiceTests {
     }
 
     @Test
+    void participantsCanSeePendingRoomInChatList() {
+        ChatRoomRepository chatRoomRepository = mock(ChatRoomRepository.class);
+        ChatMessageRepository chatMessageRepository = mock(ChatMessageRepository.class);
+        UserRepository userRepository = mock(UserRepository.class);
+        ListingRepository listingRepository = mock(ListingRepository.class);
+        ChatService chatService = new ChatService(
+                chatRoomRepository,
+                chatMessageRepository,
+                userRepository,
+                listingRepository
+        );
+        User founder = createUser(2L, UserRole.FOUNDER, "박창업");
+        User landlord = createUser(1L, UserRole.LANDLORD, "김임대");
+        ChatRoom room = createRoom(10L, founder, landlord, createListing(20L, landlord));
+
+        when(userRepository.findById(1L)).thenReturn(Optional.of(landlord));
+        when(chatRoomRepository.findAllByFounderIdOrLandlordIdOrderByCreatedAtDesc(1L, 1L)).thenReturn(List.of(room));
+
+        List<ChatRoomResponse> response = chatService.getRooms(authentication("1"));
+
+        assertEquals(1, response.size());
+        assertEquals(10L, response.getFirst().roomId());
+        assertEquals(ChatRoomStatus.PENDING.name(), response.getFirst().status());
+    }
+
+    @Test
+    void participantsCanReadPendingRoomMessagesBeforeAcceptance() {
+        ChatRoomRepository chatRoomRepository = mock(ChatRoomRepository.class);
+        ChatMessageRepository chatMessageRepository = mock(ChatMessageRepository.class);
+        UserRepository userRepository = mock(UserRepository.class);
+        ListingRepository listingRepository = mock(ListingRepository.class);
+        ChatService chatService = new ChatService(
+                chatRoomRepository,
+                chatMessageRepository,
+                userRepository,
+                listingRepository
+        );
+        User founder = createUser(2L, UserRole.FOUNDER, "박창업");
+        User landlord = createUser(1L, UserRole.LANDLORD, "김임대");
+        ChatRoom room = createRoom(10L, founder, landlord, createListing(20L, landlord));
+        ChatMessage firstMessage = createMessage(100L, room, founder, "안녕하세요, 문의드립니다.");
+
+        when(userRepository.findById(1L)).thenReturn(Optional.of(landlord));
+        when(chatRoomRepository.findById(10L)).thenReturn(Optional.of(room));
+        when(chatMessageRepository.findAllByRoomIdOrderByCreatedAtAsc(10L)).thenReturn(List.of(firstMessage));
+
+        List<ChatMessageResponse> response = chatService.getMessages(10L, authentication("1"));
+
+        assertEquals(1, response.size());
+        assertEquals("안녕하세요, 문의드립니다.", response.getFirst().content());
+    }
+
+    @Test
     void pendingChatRequestBlocksSocketMessagesUntilAccepted() {
         ChatRoomRepository chatRoomRepository = mock(ChatRoomRepository.class);
         ChatMessageRepository chatMessageRepository = mock(ChatMessageRepository.class);
         UserRepository userRepository = mock(UserRepository.class);
         ListingRepository listingRepository = mock(ListingRepository.class);
-        ReservationRepository reservationRepository = mock(ReservationRepository.class);
         ChatService chatService = new ChatService(
                 chatRoomRepository,
                 chatMessageRepository,
                 userRepository,
-                listingRepository,
-                reservationRepository
+                listingRepository
         );
         User founder = createUser(2L, UserRole.FOUNDER, "박창업");
         User landlord = createUser(1L, UserRole.LANDLORD, "김임대");
@@ -171,13 +216,11 @@ class ChatServiceTests {
         ChatMessageRepository chatMessageRepository = mock(ChatMessageRepository.class);
         UserRepository userRepository = mock(UserRepository.class);
         ListingRepository listingRepository = mock(ListingRepository.class);
-        ReservationRepository reservationRepository = mock(ReservationRepository.class);
         ChatService chatService = new ChatService(
                 chatRoomRepository,
                 chatMessageRepository,
                 userRepository,
-                listingRepository,
-                reservationRepository
+                listingRepository
         );
         User founder = createUser(2L, UserRole.FOUNDER, "박창업");
         User landlord = createUser(1L, UserRole.LANDLORD, "김임대");
@@ -192,32 +235,17 @@ class ChatServiceTests {
         assertEquals(ChatRoomStatus.ACCEPTED, room.getStatus());
     }
 
-    private Authentication authentication(String userId) {
-        Authentication authentication = mock(Authentication.class);
-        when(authentication.getName()).thenReturn(userId);
-        when(authentication.isAuthenticated()).thenReturn(true);
-        return authentication;
-    }
-
-    private Principal principal(String userId) {
-        Principal principal = mock(Principal.class);
-        when(principal.getName()).thenReturn(userId);
-        return principal;
-    }
-
     @Test
     void sameFounderCreatesSeparateRequestsForDifferentListings() {
         ChatRoomRepository chatRoomRepository = mock(ChatRoomRepository.class);
         ChatMessageRepository chatMessageRepository = mock(ChatMessageRepository.class);
         UserRepository userRepository = mock(UserRepository.class);
         ListingRepository listingRepository = mock(ListingRepository.class);
-        ReservationRepository reservationRepository = mock(ReservationRepository.class);
         ChatService chatService = new ChatService(
                 chatRoomRepository,
                 chatMessageRepository,
                 userRepository,
-                listingRepository,
-                reservationRepository
+                listingRepository
         );
         User founder = createUser(2L, UserRole.FOUNDER, "박창업");
         User landlord = createUser(1L, UserRole.LANDLORD, "김임대");
@@ -247,6 +275,19 @@ class ChatServiceTests {
         assertEquals(121L, second.roomId());
         assertEquals(20L, first.listing().listingId());
         assertEquals(21L, second.listing().listingId());
+    }
+
+    private Authentication authentication(String userId) {
+        Authentication authentication = mock(Authentication.class);
+        when(authentication.getName()).thenReturn(userId);
+        when(authentication.isAuthenticated()).thenReturn(true);
+        return authentication;
+    }
+
+    private Principal principal(String userId) {
+        Principal principal = mock(Principal.class);
+        when(principal.getName()).thenReturn(userId);
+        return principal;
     }
 
     private ChatRoom createRoom(Long id, User founder, User landlord, Listing listing) {

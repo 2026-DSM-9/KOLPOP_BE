@@ -115,19 +115,18 @@ public class ReservationService {
         );
 
         reservation.approve(LocalDateTime.now());
-        ChatRoom chatRoom = chatRoomRepository.findByFounderIdAndListingId(
+        Long chatRoomId = chatRoomRepository.findByFounderIdAndListingId(
                         reservation.getFounder().getId(),
                         reservation.getListing().getId()
                 )
-                .orElseGet(() -> chatRoomRepository.save(new ChatRoom(
-                        reservation.getFounder(), landlord, reservation.getListing()
-                )));
-        chatRoom.accept(LocalDateTime.now());
+                .filter(ChatRoom::isAccepted)
+                .map(ChatRoom::getId)
+                .orElse(null);
 
         return new ReservationDecisionResponse(
                 reservation.getId(),
                 toStatusResponse(reservation.getStatus()),
-                chatRoom.getId()
+                chatRoomId
         );
     }
 
@@ -149,7 +148,7 @@ public class ReservationService {
     private ReservationManagementItemResponse toManagementItemResponse(Reservation reservation, Long chatRoomId) {
         boolean canApprove = reservation.isPending();
         boolean canReject = reservation.isPending();
-        boolean canChat = reservation.isApproved();
+        boolean canChat = reservation.isApproved() && chatRoomId != null;
 
         return new ReservationManagementItemResponse(
                 reservation.getId(),
@@ -183,6 +182,7 @@ public class ReservationService {
 
         return chatRoomRepository.findAllByLandlordIdAndListingIdIn(landlordId, listingIds)
                 .stream()
+                .filter(ChatRoom::isAccepted)
                 .collect(Collectors.toMap(ChatRoomKey::from, ChatRoom::getId));
     }
 
