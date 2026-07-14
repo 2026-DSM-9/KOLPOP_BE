@@ -5,6 +5,7 @@ import java.time.LocalDateTime;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.stream.Collectors;
 
 import org.springframework.beans.factory.annotation.Autowired;
@@ -65,11 +66,12 @@ public class ListingService {
     public CreateListingResponse createListing(Long userId, CreateListingRequest request) {
         User landlord = getLandlord(userId);
         validatePeriod(request);
+        List<String> imageUrls = normalizeImageUrls(request.imageUrls());
 
         Listing listing = new Listing(
                 landlord,
                 request.title().trim(),
-                normalizeList(request.imageUrls()),
+                imageUrls,
                 request.address().trim(),
                 normalizeNullable(request.detailAddress()),
                 request.latitude(),
@@ -98,10 +100,11 @@ public class ListingService {
         User landlord = getLandlord(userId);
         Listing listing = getOwnedListing(landlord, listingId, "LISTING_UPDATE_FORBIDDEN", "본인이 등록한 매물만 수정할 수 있습니다.");
         validatePeriod(request);
+        List<String> imageUrls = normalizeImageUrls(request.imageUrls());
 
         listing.update(
                 request.title().trim(),
-                normalizeList(request.imageUrls()),
+                imageUrls,
                 request.address().trim(),
                 normalizeNullable(request.detailAddress()),
                 request.latitude(),
@@ -423,10 +426,19 @@ public class ListingService {
         }
 
         return values.stream()
+                .filter(Objects::nonNull)
                 .map(String::trim)
                 .filter(value -> !value.isBlank())
                 .distinct()
                 .toList();
+    }
+
+    private List<String> normalizeImageUrls(List<String> imageUrls) {
+        List<String> normalized = normalizeList(imageUrls);
+        if (normalized.isEmpty()) {
+            throw new BusinessException(HttpStatus.BAD_REQUEST, "IMAGE_URL_REQUIRED", "이미지는 최소 1장 이상 필요합니다.");
+        }
+        return normalized;
     }
 
     private String normalizeNullable(String value) {

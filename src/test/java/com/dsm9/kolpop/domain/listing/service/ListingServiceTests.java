@@ -54,6 +54,24 @@ class ListingServiceTests {
     }
 
     @Test
+    void blankImageUrlsAreIgnoredOnCreate() {
+        ListingRepository listingRepository = mock(ListingRepository.class);
+        UserRepository userRepository = mock(UserRepository.class);
+        ListingService listingService = new ListingService(listingRepository, userRepository);
+
+        when(userRepository.findById(1L)).thenReturn(Optional.of(createUser(1L, UserRole.LANDLORD)));
+        when(listingRepository.save(any(Listing.class))).thenAnswer(invocation -> {
+            Listing listing = invocation.getArgument(0);
+            ReflectionTestUtils.setField(listing, "id", 10L);
+            return listing;
+        });
+
+        listingService.createListing(1L, createRequestWithBlankImageUrl());
+
+        verify(listingRepository).save(any(Listing.class));
+    }
+
+    @Test
     void founderCannotCreateListing() {
         ListingRepository listingRepository = mock(ListingRepository.class);
         UserRepository userRepository = mock(UserRepository.class);
@@ -227,6 +245,22 @@ class ListingServiceTests {
     }
 
     @Test
+    void blankOnlyImageUrlsAreRejected() {
+        ListingRepository listingRepository = mock(ListingRepository.class);
+        UserRepository userRepository = mock(UserRepository.class);
+        ListingService listingService = new ListingService(listingRepository, userRepository);
+
+        when(userRepository.findById(1L)).thenReturn(Optional.of(createUser(1L, UserRole.LANDLORD)));
+
+        BusinessException exception = assertThrows(
+                BusinessException.class,
+                () -> listingService.createListing(1L, createRequestWithOnlyBlankImageUrls())
+        );
+
+        assertEquals("IMAGE_URL_REQUIRED", exception.getCode());
+    }
+
+    @Test
     void mapQueryReturnsListingsWithinBounds() {
         ListingRepository listingRepository = mock(ListingRepository.class);
         UserRepository userRepository = mock(UserRepository.class);
@@ -356,6 +390,55 @@ class ListingServiceTests {
                 10,
                 "성수동 메인 골목 인근 전시 공간입니다.",
                 List.of("#성수", "#전시", "#팝업")
+        );
+    }
+
+    private CreateListingRequest createRequestWithBlankImageUrl() {
+        return new CreateListingRequest(
+                "홍대입구역 1층 팝업 공간",
+                List.of(
+                        "https://cdn.example.com/listings/1.jpg",
+                        "   "
+                ),
+                "서울 마포구 양화로 123",
+                "1층",
+                new BigDecimal("37.5551000"),
+                new BigDecimal("126.9235000"),
+                150000L,
+                1000000L,
+                new BigDecimal("66.1"),
+                List.of("와이파이", "테이블", "에어컨"),
+                List.of("주류 판매 불가"),
+                List.of("외부 간판 설치 불가"),
+                LocalDate.of(2026, 7, 20),
+                LocalDate.of(2026, 7, 26),
+                1,
+                7,
+                "홍대 메인 거리 인근에 위치한 1층 팝업 공간입니다.",
+                List.of("#홍대", "#1층", "#유동인구많음")
+        );
+    }
+
+    private CreateListingRequest createRequestWithOnlyBlankImageUrls() {
+        return new CreateListingRequest(
+                "홍대입구역 1층 팝업 공간",
+                List.of("   ", ""),
+                "서울 마포구 양화로 123",
+                "1층",
+                new BigDecimal("37.5551000"),
+                new BigDecimal("126.9235000"),
+                150000L,
+                1000000L,
+                new BigDecimal("66.1"),
+                List.of("와이파이", "테이블", "에어컨"),
+                List.of("주류 판매 불가"),
+                List.of("외부 간판 설치 불가"),
+                LocalDate.of(2026, 7, 20),
+                LocalDate.of(2026, 7, 26),
+                1,
+                7,
+                "홍대 메인 거리 인근에 위치한 1층 팝업 공간입니다.",
+                List.of("#홍대", "#1층", "#유동인구많음")
         );
     }
 

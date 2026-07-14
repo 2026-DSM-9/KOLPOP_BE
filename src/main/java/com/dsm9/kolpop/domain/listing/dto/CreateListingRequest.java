@@ -19,7 +19,7 @@ public record CreateListingRequest(
 
         @NotEmpty
         @Size(max = 10)
-        List<@NotBlank @Size(max = 500) String> imageUrls,
+        List<@Size(max = 2048) String> imageUrls,
 
         @NotBlank
         @Size(max = 255)

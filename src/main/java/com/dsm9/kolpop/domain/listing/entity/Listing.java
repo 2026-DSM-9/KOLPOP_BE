@@ -41,7 +41,7 @@ public class Listing {
     @ElementCollection
     @CollectionTable(name = "listing_images", joinColumns = @JoinColumn(name = "listing_id"))
     @OrderColumn(name = "image_order")
-    @Column(name = "image_url", nullable = false, length = 500)
+    @Column(name = "image_url", nullable = false, length = 2048)
     private List<String> imageUrls = new ArrayList<>();
 
     @Column(nullable = false, length = 255)
