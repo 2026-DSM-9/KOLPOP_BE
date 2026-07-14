@@ -4,7 +4,10 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -13,6 +16,7 @@ import com.dsm9.kolpop.domain.auth.repository.UserRepository;
 import com.dsm9.kolpop.domain.listing.dto.CloseListingResponse;
 import com.dsm9.kolpop.domain.listing.dto.CreateListingRequest;
 import com.dsm9.kolpop.domain.listing.dto.CreateListingResponse;
+import com.dsm9.kolpop.domain.listing.dto.LikeListingResponse;
 import com.dsm9.kolpop.domain.listing.dto.ListingDetailResponse;
 import com.dsm9.kolpop.domain.listing.dto.ListingListResponse;
 import com.dsm9.kolpop.domain.listing.dto.ListingMapItemResponse;
@@ -21,7 +25,10 @@ import com.dsm9.kolpop.domain.listing.dto.ListingStatusResponse;
 import com.dsm9.kolpop.domain.listing.dto.ListingSummaryResponse;
 import com.dsm9.kolpop.domain.listing.dto.UpdateListingResponse;
 import com.dsm9.kolpop.domain.listing.entity.Listing;
+import com.dsm9.kolpop.domain.listing.entity.ListingLike;
 import com.dsm9.kolpop.domain.listing.entity.ListingStatus;
+import com.dsm9.kolpop.domain.listing.repository.ListingLikeCount;
+import com.dsm9.kolpop.domain.listing.repository.ListingLikeRepository;
 import com.dsm9.kolpop.domain.listing.repository.ListingRepository;
 import com.dsm9.kolpop.domain.user.entity.User;
 import com.dsm9.kolpop.domain.user.entity.UserRole;
@@ -31,12 +38,26 @@ import com.dsm9.kolpop.global.exception.BusinessException;
 public class ListingService {
 
     private static final int DEFAULT_RESERVATION_COUNT = 0;
+    private static final String POPULAR_SORT = "popular";
 
     private final ListingRepository listingRepository;
+    private final ListingLikeRepository listingLikeRepository;
     private final UserRepository userRepository;
 
-    public ListingService(ListingRepository listingRepository, UserRepository userRepository) {
+    @Autowired
+    public ListingService(
+            ListingRepository listingRepository,
+            ListingLikeRepository listingLikeRepository,
+            UserRepository userRepository
+    ) {
         this.listingRepository = listingRepository;
+        this.listingLikeRepository = listingLikeRepository;
+        this.userRepository = userRepository;
+    }
+
+    ListingService(ListingRepository listingRepository, UserRepository userRepository) {
+        this.listingRepository = listingRepository;
+        this.listingLikeRepository = null;
         this.userRepository = userRepository;
     }
 
@@ -131,22 +152,37 @@ public class ListingService {
             BigDecimal minLatitude,
             BigDecimal maxLatitude,
             BigDecimal minLongitude,
-            BigDecimal maxLongitude
+            BigDecimal maxLongitude,
+            String sort
     ) {
-        List<ListingSummaryResponse> listings = findListings(minLatitude, maxLatitude, minLongitude, maxLongitude)
-                .stream()
-                .map(this::toSummaryResponse)
+        List<Listing> foundListings = findListings(minLatitude, maxLatitude, minLongitude, maxLongitude, sort);
+        Map<Long, Long> likeCounts = getLikeCounts(foundListings);
+
+        List<ListingSummaryResponse> listings = foundListings.stream()
+                .map(listing -> toSummaryResponse(listing, likeCounts.getOrDefault(listing.getId(), 0L)))
                 .toList();
 
         return new ListingListResponse(listings.size(), listings);
     }
 
     @Transactional(readOnly = true)
+    public ListingListResponse getListings(
+            BigDecimal minLatitude,
+            BigDecimal maxLatitude,
+            BigDecimal minLongitude,
+            BigDecimal maxLongitude
+    ) {
+        return getListings(minLatitude, maxLatitude, minLongitude, maxLongitude, null);
+    }
+
+    @Transactional(readOnly = true)
     public ListingListResponse getMyListings(Long userId) {
         User landlord = getLandlord(userId);
-        List<ListingSummaryResponse> listings = listingRepository.findAllByLandlordIdOrderByCreatedAtDesc(landlord.getId())
-                .stream()
-                .map(this::toSummaryResponse)
+        List<Listing> ownedListings = listingRepository.findAllByLandlordIdOrderByCreatedAtDesc(landlord.getId());
+        Map<Long, Long> likeCounts = getLikeCounts(ownedListings);
+
+        List<ListingSummaryResponse> listings = ownedListings.stream()
+                .map(listing -> toSummaryResponse(listing, likeCounts.getOrDefault(listing.getId(), 0L)))
                 .toList();
 
         return new ListingListResponse(listings.size(), listings);
@@ -158,6 +194,29 @@ public class ListingService {
         listing.increaseViewCount();
 
         return toDetailResponse(listing);
+    }
+
+    @Transactional
+    public LikeListingResponse likeListing(Long userId, Long listingId) {
+        User user = getUser(userId);
+        Listing listing = getListing(listingId);
+
+        if (!listingLikeRepository.existsByListingIdAndUserId(listingId, user.getId())) {
+            listingLikeRepository.save(new ListingLike(listing, user, LocalDateTime.now()));
+        }
+
+        return new LikeListingResponse(listingId, listingLikeRepository.countByListingId(listingId), true);
+    }
+
+    @Transactional
+    public LikeListingResponse unlikeListing(Long userId, Long listingId) {
+        User user = getUser(userId);
+        Listing listing = getListing(listingId);
+
+        listingLikeRepository.findByListingIdAndUserId(listing.getId(), user.getId())
+                .ifPresent(listingLikeRepository::delete);
+
+        return new LikeListingResponse(listingId, listingLikeRepository.countByListingId(listingId), false);
     }
 
     @Transactional
@@ -183,9 +242,13 @@ public class ListingService {
                 .orElseThrow(() -> new BusinessException(HttpStatus.NOT_FOUND, "LISTING_NOT_FOUND", "매물을 찾을 수 없습니다."));
     }
 
-    private User getLandlord(Long userId) {
-        User user = userRepository.findById(userId)
+    private User getUser(Long userId) {
+        return userRepository.findById(userId)
                 .orElseThrow(() -> new BusinessException(HttpStatus.UNAUTHORIZED, "USER_NOT_FOUND", "사용자를 찾을 수 없습니다."));
+    }
+
+    private User getLandlord(Long userId) {
+        User user = getUser(userId);
 
         if (user.getRole() != UserRole.LANDLORD) {
             throw new BusinessException(HttpStatus.FORBIDDEN, "LANDLORD_ONLY", "임대인 회원만 매물을 등록하거나 삭제할 수 있습니다.");
@@ -229,14 +292,19 @@ public class ListingService {
             BigDecimal minLatitude,
             BigDecimal maxLatitude,
             BigDecimal minLongitude,
-            BigDecimal maxLongitude
+            BigDecimal maxLongitude,
+            String sort
     ) {
         boolean hasNoBounds = minLatitude == null
                 && maxLatitude == null
                 && minLongitude == null
                 && maxLongitude == null;
+        boolean popularSort = POPULAR_SORT.equalsIgnoreCase(normalizeNullable(sort));
 
         if (hasNoBounds) {
+            if (popularSort) {
+                return listingRepository.findAllByStatusOrderByLikeCountDesc(ListingStatus.RECRUITING);
+            }
             return listingRepository.findAllByStatusOrderByCreatedAtDesc(ListingStatus.RECRUITING);
         }
 
@@ -245,6 +313,15 @@ public class ListingService {
         }
 
         validateBounds(minLatitude, maxLatitude, minLongitude, maxLongitude);
+        if (popularSort) {
+            return listingRepository.findAllByStatusAndBoundsOrderByLikeCountDesc(
+                    ListingStatus.RECRUITING,
+                    minLatitude,
+                    maxLatitude,
+                    minLongitude,
+                    maxLongitude
+            );
+        }
         return listingRepository.findAllByStatusAndLatitudeBetweenAndLongitudeBetweenOrderByCreatedAtDesc(
                 ListingStatus.RECRUITING,
                 minLatitude,
@@ -267,7 +344,7 @@ public class ListingService {
         );
     }
 
-    private ListingSummaryResponse toSummaryResponse(Listing listing) {
+    private ListingSummaryResponse toSummaryResponse(Listing listing, Long likeCount) {
         return new ListingSummaryResponse(
                 listing.getId(),
                 listing.getTitle(),
@@ -276,6 +353,7 @@ public class ListingService {
                 listing.getDailyFee(),
                 listing.getDeposit(),
                 listing.getArea(),
+                likeCount,
                 listing.getViewCount(),
                 DEFAULT_RESERVATION_COUNT,
                 toStatusResponse(listing)
@@ -283,6 +361,8 @@ public class ListingService {
     }
 
     private ListingDetailResponse toDetailResponse(Listing listing) {
+        Long likeCount = getLikeCount(listing.getId());
+
         return new ListingDetailResponse(
                 listing.getId(),
                 listing.getTitle(),
@@ -294,6 +374,7 @@ public class ListingService {
                 listing.getArea(),
                 listing.getDailyFee() * 7,
                 listing.getLandlord().getName(),
+                likeCount,
                 listing.getViewCount(),
                 DEFAULT_RESERVATION_COUNT,
                 listing.getOperatingStartDate(),
@@ -309,6 +390,27 @@ public class ListingService {
                 listing.getLongitude(),
                 toStatusResponse(listing)
         );
+    }
+
+    private Map<Long, Long> getLikeCounts(List<Listing> listings) {
+        if (listingLikeRepository == null || listings.isEmpty()) {
+            return Collections.emptyMap();
+        }
+
+        List<Long> listingIds = listings.stream()
+                .map(Listing::getId)
+                .toList();
+
+        return listingLikeRepository.countByListingIds(listingIds)
+                .stream()
+                .collect(Collectors.toMap(ListingLikeCount::getListingId, ListingLikeCount::getLikeCount));
+    }
+
+    private Long getLikeCount(Long listingId) {
+        if (listingLikeRepository == null) {
+            return 0L;
+        }
+        return listingLikeRepository.countByListingId(listingId);
     }
 
     private ListingStatusResponse toStatusResponse(Listing listing) {
