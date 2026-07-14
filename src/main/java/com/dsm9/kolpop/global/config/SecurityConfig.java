@@ -41,6 +41,7 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.PATCH, "/listings/**").authenticated()
                         .requestMatchers(HttpMethod.DELETE, "/listings/**").authenticated()
                         .requestMatchers(HttpMethod.GET, "/listings/my").authenticated()
+                        .requestMatchers("/reservations/**").authenticated()
                         .anyRequest().permitAll()
                 )
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
