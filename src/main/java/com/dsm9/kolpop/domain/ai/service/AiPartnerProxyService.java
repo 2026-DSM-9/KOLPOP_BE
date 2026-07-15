@@ -11,6 +11,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
+import org.springframework.web.client.RestClientResponseException;
 
 import com.dsm9.kolpop.domain.ai.config.AiServerProperties;
 import com.dsm9.kolpop.domain.ai.dto.AiConversationDetailResponse;
@@ -121,6 +122,8 @@ public class AiPartnerProxyService {
                     .headers(this::addAuthorization)
                     .retrieve()
                     .body(JsonNode.class);
+        } catch (RestClientResponseException exception) {
+            throw upstreamError(exception);
         } catch (RestClientException exception) {
             log.error("AI server GET request failed: path={}", path, exception);
             throw unavailable();
@@ -137,6 +140,8 @@ public class AiPartnerProxyService {
                     .body(request)
                     .retrieve()
                     .body(JsonNode.class);
+        } catch (RestClientResponseException exception) {
+            throw upstreamError(exception);
         } catch (RestClientException exception) {
             log.error("AI server POST request failed: path={}", path, exception);
             throw unavailable();
@@ -169,6 +174,27 @@ public class AiPartnerProxyService {
                 "AI_SERVER_UNAVAILABLE",
                 "AI server response could not be received."
         );
+    }
+
+    private BusinessException upstreamError(RestClientResponseException exception) {
+        HttpStatus status = resolveStatus(exception);
+        String code = status.is4xxClientError() ? "AI_SERVER_BAD_REQUEST" : "AI_SERVER_ERROR";
+        String responseBody = truncate(exception.getResponseBodyAsString(), 1000);
+        String message = "AI server returned " + exception.getStatusCode().value();
+
+        if (!isBlank(responseBody)) {
+            message += ": " + responseBody;
+        }
+
+        return new BusinessException(status, code, message);
+    }
+
+    private HttpStatus resolveStatus(RestClientResponseException exception) {
+        HttpStatus status = HttpStatus.resolve(exception.getStatusCode().value());
+        if (status == null) {
+            return HttpStatus.BAD_GATEWAY;
+        }
+        return status;
     }
 
     private boolean isBlank(String value) {
