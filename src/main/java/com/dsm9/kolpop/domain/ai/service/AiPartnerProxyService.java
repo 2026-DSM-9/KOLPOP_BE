@@ -3,6 +3,8 @@ package com.dsm9.kolpop.domain.ai.service;
 import java.time.LocalDateTime;
 import java.util.List;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
@@ -23,6 +25,8 @@ import tools.jackson.databind.JsonNode;
 
 @Service
 public class AiPartnerProxyService {
+
+    private static final Logger log = LoggerFactory.getLogger(AiPartnerProxyService.class);
 
     private static final String HEALTH_PATH = "/health";
     private static final String CHAT_PATH = "/api/v1/chat";
@@ -118,6 +122,7 @@ public class AiPartnerProxyService {
                     .retrieve()
                     .body(JsonNode.class);
         } catch (RestClientException exception) {
+            log.error("AI server GET request failed: path={}", path, exception);
             throw unavailable();
         }
     }
@@ -133,6 +138,7 @@ public class AiPartnerProxyService {
                     .retrieve()
                     .body(JsonNode.class);
         } catch (RestClientException exception) {
+            log.error("AI server POST request failed: path={}", path, exception);
             throw unavailable();
         }
     }
