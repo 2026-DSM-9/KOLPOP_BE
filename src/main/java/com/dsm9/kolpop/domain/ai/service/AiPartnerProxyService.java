@@ -4,6 +4,8 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
@@ -32,6 +34,8 @@ import tools.jackson.databind.node.ObjectNode;
 
 @Service
 public class AiPartnerProxyService {
+
+    private static final Logger log = LoggerFactory.getLogger(AiPartnerProxyService.class);
 
     private static final String HEALTH_PATH = "/health";
     private static final String CHAT_LISTINGS_PATH = "/api/v1/chat/listings";
@@ -138,8 +142,9 @@ public class AiPartnerProxyService {
                     .retrieve()
                     .body(JsonNode.class);
         } catch (RestClientResponseException exception) {
-            throw upstreamFailure(exception);
+            throw upstreamError(exception);
         } catch (RestClientException exception) {
+            log.error("AI server GET request failed: path={}", path, exception);
             throw unavailable();
         }
     }
@@ -155,8 +160,9 @@ public class AiPartnerProxyService {
                     .retrieve()
                     .body(JsonNode.class);
         } catch (RestClientResponseException exception) {
-            throw upstreamFailure(exception);
+            throw upstreamError(exception);
         } catch (RestClientException exception) {
+            log.error("AI server POST request failed: path={}", path, exception);
             throw unavailable();
         }
     }
@@ -263,18 +269,25 @@ public class AiPartnerProxyService {
         );
     }
 
-    private BusinessException upstreamFailure(RestClientResponseException exception) {
-        String responseBody = truncate(exception.getResponseBodyAsString(), 500);
-        String message = "AI server returned status %d.".formatted(exception.getStatusCode().value());
+    private BusinessException upstreamError(RestClientResponseException exception) {
+        HttpStatus status = resolveStatus(exception);
+        String code = status.is4xxClientError() ? "AI_SERVER_BAD_REQUEST" : "AI_SERVER_ERROR";
+        String responseBody = truncate(exception.getResponseBodyAsString(), 1000);
+        String message = "AI server returned " + exception.getStatusCode().value();
+
         if (!isBlank(responseBody)) {
-            message += " Response: " + responseBody;
+            message += ": " + responseBody;
         }
 
-        return new BusinessException(
-                HttpStatus.BAD_GATEWAY,
-                "AI_SERVER_BAD_RESPONSE",
-                message
-        );
+        return new BusinessException(status, code, message);
+    }
+
+    private HttpStatus resolveStatus(RestClientResponseException exception) {
+        HttpStatus status = HttpStatus.resolve(exception.getStatusCode().value());
+        if (status == null) {
+            return HttpStatus.BAD_GATEWAY;
+        }
+        return status;
     }
 
     private boolean isBlank(String value) {
