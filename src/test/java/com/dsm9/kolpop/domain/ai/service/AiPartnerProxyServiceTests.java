@@ -84,6 +84,40 @@ class AiPartnerProxyServiceTests {
     }
 
     @Test
+    void chatProxiesGeneralAiConversation() throws Exception {
+        RestClient.Builder builder = RestClient.builder();
+        MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
+        AiConversationRepository conversationRepository = mock(AiConversationRepository.class);
+        UserRepository userRepository = mock(UserRepository.class);
+        AiPartnerProxyService service = new AiPartnerProxyService(
+                builder,
+                createProperties(),
+                conversationRepository,
+                userRepository
+        );
+        User user = createUser(7L);
+        JsonNode request = objectMapper.readTree("""
+                {"message":"Which festival should I target?","history":[]}
+                """);
+
+        when(userRepository.findById(7L)).thenReturn(Optional.of(user));
+        server.expect(once(), requestTo("https://ai.example.test/api/v1/chat"))
+                .andExpect(method(HttpMethod.POST))
+                .andExpect(header("Authorization", "Bearer test-ai-key"))
+                .andExpect(content().json("""
+                        {"message":"Which festival should I target?","history":[]}
+                        """))
+                .andRespond(withSuccess("""
+                        {"answer":"Target a high-footfall weekend festival."}
+                        """, MediaType.APPLICATION_JSON));
+
+        JsonNode response = service.chat(7L, request);
+
+        assertEquals("Target a high-footfall weekend festival.", response.get("answer").asText());
+        server.verify();
+    }
+
+    @Test
     void marketingAutomationProxiesMarketingEndpoint() throws Exception {
         RestClient.Builder builder = RestClient.builder();
         MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();

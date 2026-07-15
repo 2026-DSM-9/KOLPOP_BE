@@ -46,6 +46,12 @@ public class AiPartnerController {
         return ApiResponse.success(aiPartnerProxyService.chatListings(extractUserId(authentication), request));
     }
 
+    @PostMapping("/chat")
+    @Operation(summary = "AI chat")
+    public ApiResponse<JsonNode> chat(@RequestBody JsonNode request, Authentication authentication) {
+        return ApiResponse.success(aiPartnerProxyService.chat(extractUserId(authentication), request));
+    }
+
     @GetMapping("/conversations")
     @Operation(summary = "AI conversation history list")
     public ApiResponse<List<AiConversationSummaryResponse>> getConversations(Authentication authentication) {

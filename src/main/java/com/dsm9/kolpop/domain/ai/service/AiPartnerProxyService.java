@@ -25,6 +25,7 @@ import tools.jackson.databind.JsonNode;
 public class AiPartnerProxyService {
 
     private static final String HEALTH_PATH = "/health";
+    private static final String CHAT_PATH = "/api/v1/chat";
     private static final String CHAT_LISTINGS_PATH = "/api/v1/chat/listings";
     private static final String RECOMMEND_LISTINGS_PATH = "/api/v1/recommend/listings";
     private static final String RECOMMEND_REGIONS_PATH = "/api/v1/recommend/regions";
@@ -59,6 +60,12 @@ public class AiPartnerProxyService {
 
     public JsonNode chatListings(JsonNode request) {
         return post(CHAT_LISTINGS_PATH, request);
+    }
+
+    public JsonNode chat(Long userId, JsonNode request) {
+        JsonNode response = post(CHAT_PATH, request);
+        saveConversation(userId, request, response);
+        return response;
     }
 
     public JsonNode chatListings(Long userId, JsonNode request) {
