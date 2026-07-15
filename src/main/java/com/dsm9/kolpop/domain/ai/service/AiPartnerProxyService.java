@@ -1,6 +1,7 @@
 package com.dsm9.kolpop.domain.ai.service;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 
 import org.springframework.beans.factory.annotation.Autowired;
@@ -9,69 +10,82 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
+import org.springframework.web.client.RestClientResponseException;
 
 import com.dsm9.kolpop.domain.ai.config.AiServerProperties;
+import com.dsm9.kolpop.domain.ai.dto.AiChatMessageRequest;
 import com.dsm9.kolpop.domain.ai.dto.AiConversationDetailResponse;
 import com.dsm9.kolpop.domain.ai.dto.AiConversationSummaryResponse;
 import com.dsm9.kolpop.domain.ai.entity.AiConversation;
 import com.dsm9.kolpop.domain.ai.repository.AiConversationRepository;
 import com.dsm9.kolpop.domain.auth.repository.UserRepository;
+import com.dsm9.kolpop.domain.listing.entity.Listing;
+import com.dsm9.kolpop.domain.listing.entity.ListingStatus;
+import com.dsm9.kolpop.domain.listing.repository.ListingRepository;
 import com.dsm9.kolpop.domain.user.entity.User;
 import com.dsm9.kolpop.global.exception.BusinessException;
 
 import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.node.ArrayNode;
+import tools.jackson.databind.node.ObjectNode;
 
 @Service
 public class AiPartnerProxyService {
 
     private static final String HEALTH_PATH = "/health";
-    private static final String CHAT_PATH = "/api/v1/chat";
     private static final String CHAT_LISTINGS_PATH = "/api/v1/chat/listings";
+    private static final String CHAT_BUSINESS_ITEMS_PATH = "/api/v1/chat/business-items";
+    private static final String CHAT_MARKETING_PATH = "/api/v1/chat/marketing";
     private static final String RECOMMEND_LISTINGS_PATH = "/api/v1/recommend/listings";
     private static final String RECOMMEND_REGIONS_PATH = "/api/v1/recommend/regions";
     private static final String RECOMMEND_BUSINESS_ITEMS_PATH = "/api/v1/recommend/business-items";
     private static final String MARKETING_AUTOMATION_PATH = "/api/v1/marketing/automation";
+    private static final int MAX_LISTING_SUMMARY_LENGTH = 300;
 
     private final RestClient restClient;
     private final AiServerProperties aiServerProperties;
     private final AiConversationRepository aiConversationRepository;
     private final UserRepository userRepository;
+    private final ListingRepository listingRepository;
+    private final ObjectMapper objectMapper = new ObjectMapper();
 
     @Autowired
     public AiPartnerProxyService(
             RestClient.Builder restClientBuilder,
             AiServerProperties aiServerProperties,
             AiConversationRepository aiConversationRepository,
-            UserRepository userRepository
+            UserRepository userRepository,
+            ListingRepository listingRepository
     ) {
         this.restClient = restClientBuilder.build();
         this.aiServerProperties = aiServerProperties;
         this.aiConversationRepository = aiConversationRepository;
         this.userRepository = userRepository;
+        this.listingRepository = listingRepository;
     }
 
     public AiPartnerProxyService(RestClient.Builder restClientBuilder, AiServerProperties aiServerProperties) {
-        this(restClientBuilder, aiServerProperties, null, null);
+        this(restClientBuilder, aiServerProperties, null, null, null);
     }
 
     public JsonNode health() {
         return get(HEALTH_PATH);
     }
 
-    public JsonNode chatListings(JsonNode request) {
-        return post(CHAT_LISTINGS_PATH, request);
+    public JsonNode chatListings(Long userId, AiChatMessageRequest request) {
+        JsonNode payload = buildListingsChatPayload(request);
+        return postAndSave(userId, CHAT_LISTINGS_PATH, payload);
     }
 
-    public JsonNode chat(Long userId, JsonNode request) {
-        JsonNode response = post(CHAT_PATH, request);
-        saveConversation(userId, request, response);
-        return response;
+    public JsonNode chatBusinessItems(Long userId, AiChatMessageRequest request) {
+        JsonNode payload = buildMessageOnlyPayload(request);
+        return postAndSave(userId, CHAT_BUSINESS_ITEMS_PATH, payload);
     }
 
-    public JsonNode chatListings(Long userId, JsonNode request) {
-        JsonNode response = post(CHAT_LISTINGS_PATH, request);
-        saveConversation(userId, request, response);
-        return response;
+    public JsonNode chatMarketing(Long userId, AiChatMessageRequest request) {
+        JsonNode payload = buildMessageOnlyPayload(request);
+        return postAndSave(userId, CHAT_MARKETING_PATH, payload);
     }
 
     public List<AiConversationSummaryResponse> getConversations(Long userId) {
@@ -108,6 +122,12 @@ public class AiPartnerProxyService {
         return post(MARKETING_AUTOMATION_PATH, request);
     }
 
+    private JsonNode postAndSave(Long userId, String path, JsonNode request) {
+        JsonNode response = post(path, request);
+        saveConversation(userId, request, response);
+        return response;
+    }
+
     private JsonNode get(String path) {
         validateConfiguration();
 
@@ -117,6 +137,8 @@ public class AiPartnerProxyService {
                     .headers(this::addAuthorization)
                     .retrieve()
                     .body(JsonNode.class);
+        } catch (RestClientResponseException exception) {
+            throw upstreamFailure(exception);
         } catch (RestClientException exception) {
             throw unavailable();
         }
@@ -132,8 +154,84 @@ public class AiPartnerProxyService {
                     .body(request)
                     .retrieve()
                     .body(JsonNode.class);
+        } catch (RestClientResponseException exception) {
+            throw upstreamFailure(exception);
         } catch (RestClientException exception) {
             throw unavailable();
+        }
+    }
+
+    private JsonNode buildMessageOnlyPayload(AiChatMessageRequest request) {
+        ObjectNode payload = objectMapper.createObjectNode();
+        payload.put("message", request.message().trim());
+        return payload;
+    }
+
+    private JsonNode buildListingsChatPayload(AiChatMessageRequest request) {
+        if (listingRepository == null) {
+            throw new BusinessException(
+                    HttpStatus.INTERNAL_SERVER_ERROR,
+                    "LISTING_REPOSITORY_REQUIRED",
+                    "Listing repository is required for listing recommendation chat."
+            );
+        }
+
+        ObjectNode payload = objectMapper.createObjectNode();
+        payload.put("message", request.message().trim());
+
+        ArrayNode listingsNode = payload.putArray("listings");
+        for (Listing listing : listingRepository.findAllByStatusOrderByCreatedAtDesc(ListingStatus.RECRUITING)) {
+            ObjectNode listingNode = listingsNode.addObject();
+            listingNode.put("listing_id", String.valueOf(listing.getId()));
+            listingNode.put("title", normalizeText(listing.getTitle()));
+            listingNode.put("address", normalizeText(listing.getAddress()));
+            listingNode.put("detail_address", normalizeText(listing.getDetailAddress()));
+            listingNode.put("price_per_day", listing.getDailyFee());
+            listingNode.put("deposit", listing.getDeposit());
+            if (listing.getArea() != null) {
+                listingNode.put("area_sqm", listing.getArea());
+            }
+            listingNode.put("summary", truncate(normalizeText(listing.getDescription()), MAX_LISTING_SUMMARY_LENGTH));
+            addTextArray(listingNode.putArray("facilities"), listing.getFacilities());
+            addTextArray(listingNode.putArray("restrictions"), mergeRestrictions(listing));
+            addTextArray(listingNode.putArray("hashtags"), listing.getHashtags());
+            listingNode.put("available_from", listing.getOperatingStartDate() == null ? "" : listing.getOperatingStartDate().toString());
+            listingNode.put("available_to", listing.getOperatingEndDate() == null ? "" : listing.getOperatingEndDate().toString());
+        }
+
+        return payload;
+    }
+
+    private List<String> mergeRestrictions(Listing listing) {
+        List<String> restrictions = new ArrayList<>();
+        addNormalizedValues(restrictions, listing.getIndustryRestrictions());
+        addNormalizedValues(restrictions, listing.getAdditionalRestrictions());
+        return restrictions;
+    }
+
+    private void addNormalizedValues(List<String> target, List<String> values) {
+        if (values == null) {
+            return;
+        }
+
+        for (String value : values) {
+            String normalizedValue = normalizeText(value);
+            if (!normalizedValue.isEmpty()) {
+                target.add(normalizedValue);
+            }
+        }
+    }
+
+    private void addTextArray(ArrayNode target, List<String> values) {
+        if (values == null) {
+            return;
+        }
+
+        for (String value : values) {
+            String normalizedValue = normalizeText(value);
+            if (!normalizedValue.isEmpty()) {
+                target.add(normalizedValue);
+            }
         }
     }
 
@@ -165,6 +263,20 @@ public class AiPartnerProxyService {
         );
     }
 
+    private BusinessException upstreamFailure(RestClientResponseException exception) {
+        String responseBody = truncate(exception.getResponseBodyAsString(), 500);
+        String message = "AI server returned status %d.".formatted(exception.getStatusCode().value());
+        if (!isBlank(responseBody)) {
+            message += " Response: " + responseBody;
+        }
+
+        return new BusinessException(
+                HttpStatus.BAD_GATEWAY,
+                "AI_SERVER_BAD_RESPONSE",
+                message
+        );
+    }
+
     private boolean isBlank(String value) {
         return value == null || value.isBlank();
     }
@@ -181,7 +293,7 @@ public class AiPartnerProxyService {
                         "User could not be found."
                 ));
         String userMessage = extractText(request, "message", "input", "query", "content");
-        String aiMessage = extractText(response, "answer", "message", "content", "response");
+        String aiMessage = extractText(response, "assistant_message", "assistantMessage", "answer", "message", "content", "response");
         String title = createTitle(userMessage);
 
         aiConversationRepository.save(new AiConversation(
@@ -227,5 +339,12 @@ public class AiPartnerProxyService {
             return value;
         }
         return value.substring(0, maxLength);
+    }
+
+    private String normalizeText(String value) {
+        if (value == null) {
+            return "";
+        }
+        return value.trim();
     }
 }

@@ -11,6 +11,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.dsm9.kolpop.domain.ai.dto.AiChatMessageRequest;
 import com.dsm9.kolpop.domain.ai.dto.AiConversationDetailResponse;
 import com.dsm9.kolpop.domain.ai.dto.AiConversationSummaryResponse;
 import com.dsm9.kolpop.domain.ai.service.AiPartnerProxyService;
@@ -20,6 +21,7 @@ import com.dsm9.kolpop.global.response.ApiResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
 import tools.jackson.databind.JsonNode;
 
 @RestController
@@ -41,15 +43,30 @@ public class AiPartnerController {
     }
 
     @PostMapping("/chat/listings")
-    @Operation(summary = "Conversational listing recommendation")
-    public ApiResponse<JsonNode> chatListings(@RequestBody JsonNode request, Authentication authentication) {
+    @Operation(summary = "창업 아이템 기반 매물 추천 채팅")
+    public ApiResponse<JsonNode> chatListings(
+            @Valid @RequestBody AiChatMessageRequest request,
+            Authentication authentication
+    ) {
         return ApiResponse.success(aiPartnerProxyService.chatListings(extractUserId(authentication), request));
     }
 
-    @PostMapping("/chat")
-    @Operation(summary = "AI chat")
-    public ApiResponse<JsonNode> chat(@RequestBody JsonNode request, Authentication authentication) {
-        return ApiResponse.success(aiPartnerProxyService.chat(extractUserId(authentication), request));
+    @PostMapping("/chat/business-items")
+    @Operation(summary = "지역 기반 창업 아이템 추천 채팅")
+    public ApiResponse<JsonNode> chatBusinessItems(
+            @Valid @RequestBody AiChatMessageRequest request,
+            Authentication authentication
+    ) {
+        return ApiResponse.success(aiPartnerProxyService.chatBusinessItems(extractUserId(authentication), request));
+    }
+
+    @PostMapping("/chat/marketing")
+    @Operation(summary = "마케팅 문구 및 운영 일정 추천 채팅")
+    public ApiResponse<JsonNode> chatMarketing(
+            @Valid @RequestBody AiChatMessageRequest request,
+            Authentication authentication
+    ) {
+        return ApiResponse.success(aiPartnerProxyService.chatMarketing(extractUserId(authentication), request));
     }
 
     @GetMapping("/conversations")
