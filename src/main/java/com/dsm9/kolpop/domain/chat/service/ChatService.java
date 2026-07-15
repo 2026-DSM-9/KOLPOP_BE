@@ -68,6 +68,7 @@ public class ChatService {
         User user = getAuthenticatedUser(authentication);
         return chatRoomRepository.findAllByFounderIdOrLandlordIdOrderByCreatedAtDesc(user.getId(), user.getId())
                 .stream()
+                .filter(ChatRoom::isAccepted)
                 .map(ChatRoomResponse::from)
                 .toList();
     }

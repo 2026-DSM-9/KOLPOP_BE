@@ -127,7 +127,7 @@ class ChatServiceTests {
     }
 
     @Test
-    void participantsCanSeePendingRoomInChatList() {
+    void participantsCannotSeePendingRoomInChatList() {
         ChatRoomRepository chatRoomRepository = mock(ChatRoomRepository.class);
         ChatMessageRepository chatMessageRepository = mock(ChatMessageRepository.class);
         UserRepository userRepository = mock(UserRepository.class);
@@ -147,9 +147,34 @@ class ChatServiceTests {
 
         List<ChatRoomResponse> response = chatService.getRooms(authentication("1"));
 
+        assertEquals(0, response.size());
+    }
+
+    @Test
+    void participantsCanSeeAcceptedRoomInChatList() {
+        ChatRoomRepository chatRoomRepository = mock(ChatRoomRepository.class);
+        ChatMessageRepository chatMessageRepository = mock(ChatMessageRepository.class);
+        UserRepository userRepository = mock(UserRepository.class);
+        ListingRepository listingRepository = mock(ListingRepository.class);
+        ChatService chatService = new ChatService(
+                chatRoomRepository,
+                chatMessageRepository,
+                userRepository,
+                listingRepository
+        );
+        User founder = createUser(2L, UserRole.FOUNDER, "Founder");
+        User landlord = createUser(1L, UserRole.LANDLORD, "Landlord");
+        ChatRoom room = createRoom(10L, founder, landlord, createListing(20L, landlord));
+        room.accept(LocalDateTime.of(2026, 7, 15, 10, 0));
+
+        when(userRepository.findById(1L)).thenReturn(Optional.of(landlord));
+        when(chatRoomRepository.findAllByFounderIdOrLandlordIdOrderByCreatedAtDesc(1L, 1L)).thenReturn(List.of(room));
+
+        List<ChatRoomResponse> response = chatService.getRooms(authentication("1"));
+
         assertEquals(1, response.size());
         assertEquals(10L, response.getFirst().roomId());
-        assertEquals(ChatRoomStatus.PENDING.name(), response.getFirst().status());
+        assertEquals(ChatRoomStatus.ACCEPTED.name(), response.getFirst().status());
     }
 
     @Test
